@@ -8,6 +8,7 @@ The first MVP extracts `//@` contracts from exported TypeScript functions, emits
 
 ```sh
 bun install
+bun run src/cli.ts init
 bun run verify:example
 bun run verify:core
 bun run scan:example
@@ -44,9 +45,11 @@ export default defineBipConfig({
 });
 ```
 
-`bip verify-project .` loads the config, generates runtime TypeScript and Lean artifacts for each module, runs Lean, and writes proof manifests.
+`bip verify` loads the config, generates runtime TypeScript and Lean artifacts for each module, runs Lean, and writes proof manifests.
 
-`bip scan .` is the adoption scanner. It detects the project context, checks configured proof modules and project gates, then prints a React-Doctor-style score with categorized diagnostics.
+`bip scan` is the adoption scanner. It detects the project context, checks configured proof modules and project gates, then prints a React-Doctor-style score with categorized diagnostics.
+
+`bip init` creates a starter `bip.config.ts`, `bip/example.tscore.ts`, and a short `AGENTS.md` note.
 
 ## TSCore
 

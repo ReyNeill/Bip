@@ -87,7 +87,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
       severity: "error",
       title: "Missing proof manifest",
       detail: `Configured module '${moduleConfig.name}' has no generated proof manifest.`,
-      recommendation: "Run `bunx bip verify-project .` to generate runtime TypeScript and Lean proofs.",
+      recommendation: "Run `bunx bip verify` to generate runtime TypeScript and Lean proofs.",
       location: relative(root, manifestPath),
     });
     scores.push(score);
@@ -149,7 +149,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
       severity: "warn",
       title: "TSCore source newer than manifest",
       detail: `Module '${moduleConfig.name}' changed after its proof manifest was generated.`,
-      recommendation: "Run `bunx bip verify-project .` to refresh generated artifacts.",
+      recommendation: "Run `bunx bip verify` to refresh generated artifacts.",
       location: relativeSource,
     });
   }
@@ -195,7 +195,7 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
     severity: "error",
     title: "Configured check failed",
     detail: `Check '${check.name}' exited with code ${result.exitCode}.`,
-    recommendation: "Run the check command directly, fix the reported issue, then run `bunx bip scan .` again.",
+    recommendation: "Run the check command directly, fix the reported issue, then run `bunx bip scan` again.",
     location: check.command.join(" "),
   });
   scores.push({ category, name: check.name, weight, earned: 0 });
