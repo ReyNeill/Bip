@@ -55,7 +55,7 @@ export default defineBipConfig({
 
 `bun run verify:core` demonstrates the next product layer: a tiny TSCore IR that emits both runtime TypeScript and Lean from the same source object. The generic example models route helpers and a publish-state reducer contract.
 
-The Reyneill website is now a consumer project rather than hardcoded Bip behavior. Its `bip.config.ts` and `bip/*.tscore.ts` modules live in `/Users/reyneill/Documents/code/reyneill`, and generated artifacts are written to that site's `src/generated/bip` directory.
+Bip is designed to be consumed by external projects without modifying this repo. A consumer owns its `bip.config.ts`, keeps TSCore modules in its own `bip/` directory, and writes generated artifacts to its own `src/generated/bip` directory.
 
 Metadata and navigation rendering use generated field helpers such as `pageTitle`, `pageDescription`, `routePath`, and `routeLabel`, each tied to a Lean-checked `returnsField` theorem.
 
@@ -73,9 +73,9 @@ The publish API uses generated record constructors for both success responses an
 
 Record predicates can assert that selected string fields are non-empty. The generated TypeScript predicate is usable at runtime, and Bip emits Lean theorems showing that each required empty field makes the predicate return `false`.
 
-Array-of-record constants can also assert field uniqueness. The personal site uses this for route paths, writing post paths, and project names so duplicate catalog entries fail before the site builds.
+Array-of-record constants can also assert field uniqueness. Consumer projects can use this for route paths, content catalog paths, and project names so duplicate catalog entries fail before the app builds.
 
-String fields in array constants can assert prefixes. The personal site uses this to prove generated routes start with `/` and generated writing post paths start with `writing/`.
+String fields in array constants can assert prefixes. Consumer projects can use this to prove generated routes start with `/` and generated content paths use the expected public prefix.
 
 Optional string fields can assert “empty or starts with prefix.” The project catalog uses this for optional logo paths and external URLs.
 
@@ -93,14 +93,14 @@ The project catalog exposes generated helpers for names, descriptions, logos, UR
 
 The publish API uses generated success and error constructors for its result union, so both response branches are tied to Lean-checked `returnsVariant` theorems.
 The post lookup API now constructs and validates `year`/`slug` through generated TSCore helpers, so public writing request parameters are covered by Lean-checked record and non-empty predicate theorems.
-The Reyneill writing and project modules are built through a project-owned source adapter under the website's `bip/` directory; writing reads the published post index, and projects read the personal site's `src/data/neill-projects.json` before emitting runtime TypeScript and Lean proofs.
-The same adapter now derives `siteRoutes`, `siteMetadata`, and `primaryNavigation` from the personal site's `src/data/site-core.json`, so top-level metadata and navigation are site-owned data with generated runtime helpers and Lean-checked route contracts.
+Project-specific writing and catalog modules can be built through a project-owned source adapter under the consumer app's `bip/` directory. The adapter can read app-owned JSON or TypeScript data before emitting runtime TypeScript and Lean proofs.
+The same pattern can derive `siteRoutes`, `siteMetadata`, and `primaryNavigation` from app-owned data, so top-level metadata and navigation stay project-owned while still getting generated runtime helpers and Lean-checked route contracts.
 Footer ownership and contact links also come from `site-core.json`. TSCore now supports an `allItemsFieldStartsWithOneOf` constant contract, which Lean-checks mixed URL schemes such as `mailto:` and `https://` for generated contact metadata.
-Named page metadata for Writing and Neill Industries is also derived from `site-core.json`, with generated `SitePage` constants and a `pageRoute` accessor so Next page metadata and headings can use the same Lean-checked model as navigation.
+Named page metadata can also be derived from app-owned data, with generated `SitePage` constants and a `pageRoute` accessor so Next page metadata and headings can use the same Lean-checked model as navigation.
 Private page metadata for Admin, Dashboard, and Sign In is derived from `site-core.json` as `PrivatePageMetadata`, with generated title, description, and robots helpers checked by Lean before the site build runs.
 The homepage profile copy is now modeled as a `HomeProfile` record in TSCore. The homepage renders its headline, mission, role text, employer link, and contact lead through generated helpers, while the verifier stale-checks the generated runtime against `site-core.json`.
-The writing post route and Neill Industries loading state now consume generated page metadata as well, so fallback descriptions, back links, loading headings, and loading descriptions stay tied to the same checked `SitePage` model.
-Published writing document titles are produced by a generated `publishedWritingTitle` helper. Its Lean theorem proves the generated title ends with ` — Rey Neill`, and the publish API uses that helper when creating HTML.
+Writing post routes and loading states can consume generated page metadata as well, so fallback descriptions, back links, loading headings, and loading descriptions stay tied to the same checked `SitePage` model.
+Published writing document titles can be produced by a generated `publishedWritingTitle` helper. A Lean theorem can prove the generated title ends with the configured site suffix, and the publish API can use that helper when creating HTML.
 Published writing bylines are produced by a generated `publishedWritingByline` helper. Its Lean theorem proves the rendered byline starts with `— `, and the publish API uses that helper in generated post HTML.
 
 Manifest upsert logic consumes generated `WritingManifestEntry` field helpers for identity, sort order, and commit messages, keeping that record boundary on the checked TSCore surface.

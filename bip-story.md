@@ -62,7 +62,7 @@ TSCore model
   └── TypeScript / TSX output                 →  Bun, React, npm
 ```
 
-The first non-toy target is my own personal site (`bun run verify:reyneill`), which imports generated metadata, navigation, a writing index, and the project catalog from a TSCore source. The reducers feeding React are exactly the kind of thing worth proving — most of the bugs I hit in frontends are state-machine bugs, not DOM bugs.
+The first non-toy target is a React/Bun-style app that imports generated metadata, navigation, a writing index, and a project catalog from TSCore sources. The reducers feeding React are exactly the kind of thing worth proving — many frontend bugs are state-machine bugs, not DOM bugs.
 
 The invariant Bip is trying to maintain for a published package is just:
 
@@ -86,11 +86,10 @@ If that holds, you don't have to trust my README. You re-run the checker.
 
 The bet is that as more code gets written by agents, the thing humans review shifts from source files to specifications, and the thing packages ship shifts from "trust me, it has tests" to "here is the manifest, re-check it yourself."
 
-Bip is small and early. But the loop works, the manifest is real, and the personal site is the first thing actually consuming it.
+Bip is small and early. But the loop works, the manifest is real, and the next useful step is making the consumer-project flow smooth enough for ordinary apps.
 
 ## Sources
 
 - Vitalik Buterin, [A shallow dive into formal verification](https://vitalik.eth.limo/general/2026/05/18/fv.html)
 - Vitalik's [post](https://x.com/VitalikButerin/status/2056354141832626487), May 18, 2026
-- My [reply](https://x.com/reyneill_/status/2056421180647829590), same day
 - This repo: `README.md` and `generated/proof-manifest.json`
