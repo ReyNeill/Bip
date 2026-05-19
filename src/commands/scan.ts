@@ -8,11 +8,13 @@ type FindingSeverity = "error" | "warn" | "info";
 
 type Finding = {
   category: string;
+  ruleId: string;
   severity: FindingSeverity;
   title: string;
   detail: string;
   recommendation: string;
   location?: string;
+  affectedCount?: number;
 };
 
 type ScoreItem = {
@@ -24,10 +26,11 @@ type ScoreItem = {
 
 export async function scanProject(rootPath: string): Promise<void> {
   const startedAt = Date.now();
-  const loaded = await loadBipConfig(rootPath);
-  const root = loaded.root;
+  const root = path.resolve(rootPath);
+  const loaded = await loadOptionalBipConfig(root);
+  const config = loaded?.config ?? { modules: [] };
   const packageInfo = readPackageInfo(root);
-  const sourceFileCount = countSourceFiles(root);
+  const sourceFiles = collectSourceFiles(root);
   const findings: Finding[] = [];
   const scores: ScoreItem[] = [];
 
@@ -35,20 +38,22 @@ export async function scanProject(rootPath: string): Promise<void> {
   console.log("");
   console.log(`Scanning ${root}...`);
   console.log("");
-  console.log(`- Config. Found ${path.relative(root, loaded.path)}.`);
+  console.log(loaded ? `- Config. Found ${path.relative(root, loaded.path)}.` : "- Config. Not found. Running discovery-only scan.");
   console.log(`- Framework. ${packageInfo.framework}.`);
   console.log(`- Language. ${packageInfo.language}.`);
-  console.log(`- Found ${sourceFileCount} source files.`);
-  console.log(`- Found ${loaded.config.modules.length} Bip module${loaded.config.modules.length === 1 ? "" : "s"}.`);
+  console.log(`- Found ${sourceFiles.length} source files.`);
+  console.log(`- Found ${config.modules.length} Bip module${config.modules.length === 1 ? "" : "s"}.`);
   console.log("");
 
-  for (const moduleConfig of loaded.config.modules) {
+  for (const moduleConfig of config.modules) {
     inspectModule(root, moduleConfig, findings, scores);
   }
 
-  for (const check of loaded.config.checks ?? []) {
+  for (const check of config.checks ?? []) {
     runConfiguredCheck(root, check, findings, scores);
   }
+
+  discoverBoundaries(root, sourceFiles, findings, scores);
 
   printFindings(findings);
   printScore(scores, findings, Date.now() - startedAt);
@@ -56,6 +61,166 @@ export async function scanProject(rootPath: string): Promise<void> {
   if (findings.some((finding) => finding.severity === "error")) {
     process.exitCode = 1;
   }
+}
+
+async function loadOptionalBipConfig(root: string): Promise<Awaited<ReturnType<typeof loadBipConfig>> | null> {
+  try {
+    return await loadBipConfig(root);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("No Bip config found")) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function discoverBoundaries(root: string, sourceFiles: string[], findings: Finding[], scores: ScoreItem[]): void {
+  const readableFiles = sourceFiles
+    .filter((filePath) => !filePath.includes(`${path.sep}src${path.sep}generated${path.sep}`))
+    .filter((filePath) => !filePath.includes(`${path.sep}generated${path.sep}`))
+    .map((filePath) => ({
+      filePath,
+      relativePath: relative(root, filePath),
+      content: readFileSync(filePath, "utf8"),
+    }));
+
+  inspectBoundaryGroup({
+    name: "Site metadata",
+    weight: 8,
+    files: readableFiles.filter((file) => isSiteMetadata(file.relativePath, file.content)),
+    covered: (content) => isBipBacked(content),
+    detail: "Page titles, descriptions, OpenGraph data, and social image metadata are good low-friction proof seeds.",
+    recommendation: "Move stable metadata into a Bip TSCore module and render through generated helpers.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "Navigation and links",
+    weight: 8,
+    files: readableFiles.filter((file) => isNavigationOrLinks(file.relativePath, file.content)),
+    covered: (content) => isBipBacked(content),
+    detail: "Navigation and external links should preserve stable labels, href formats, and uniqueness.",
+    recommendation: "Move route, nav, and social link catalogs into Bip constants with field and prefix contracts.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "Content catalogs",
+    weight: 8,
+    files: readableFiles.filter((file) => isContentCatalog(file.relativePath, file.content)),
+    covered: (content) => isBipBacked(content),
+    detail: "Track lists, project lists, and other repeated content should keep identity and shape invariants.",
+    recommendation: "Move repeated content arrays into Bip constants with uniqueness and non-empty field contracts.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "API contracts",
+    weight: 20,
+    files: readableFiles.filter((file) => /src\/app\/api\/.*\/route\.(ts|tsx|js|jsx)$/.test(toPosix(file.relativePath)) && /export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)/.test(file.content)),
+    covered: (content) => isBipBacked(content),
+    detail: "API route handlers should have proof-backed request/response contracts.",
+    recommendation: "Move request validation, response unions, or path constructors into a Bip TSCore module.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "Auth and permissions",
+    weight: 20,
+    files: readableFiles.filter((file) => /(clerkMiddleware|currentUser|auth\(|ADMIN_EMAIL|ADMIN_USER|ADMIN_PASS|hasPermission|canAccess)/.test(file.content)),
+    covered: (content) => isBipBacked(content) && /(can[A-Z]\w+Transition|is[A-Z]\w+\(|Permission|Role|Access)/.test(content),
+    detail: "Auth and permission branches are high-risk control boundaries.",
+    recommendation: "Model roles, protected routes, and allow/deny decisions as Bip predicates or state machines.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "Reducers and state",
+    weight: 15,
+    files: readableFiles
+      .filter((file) => !file.relativePath.includes("src/components/ui/"))
+      .filter((file) => /(useReducer|function\s+\w*Reducer|const\s+\w*Reducer|=>\s*state)/.test(file.content)),
+    covered: (content) => isBipBacked(content) && /(can[A-Z]\w+Transition|Transition\(|dispatch\()/m.test(content),
+    detail: "Reducers and local state machines should preserve explicit invariants.",
+    recommendation: "Back domain reducers with a Bip state machine and drive UI guards from generated helpers.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "External IO",
+    weight: 15,
+    files: readableFiles.filter((file) => /(fetch\(|process\.env\.(?!(NODE_ENV|NEXT_PUBLIC_|VERCEL_URL\b|VERCEL_PROJECT_PRODUCTION_URL\b))|GitHub|stripe|supabase|convex|prisma|createClient)/i.test(file.content)),
+    covered: (content) => isBipBacked(content) && /(Payload|Result|Success|Error|is[A-Z]\w+\()/m.test(content),
+    detail: "Network, environment, database, and service boundaries should have explicit contracts.",
+    recommendation: "Wrap external inputs and outputs with Bip constructors, predicates, or schemas before use.",
+    findings,
+    scores,
+  });
+
+  inspectBoundaryGroup({
+    name: "Runtime schemas",
+    weight: 10,
+    files: readableFiles.filter((file) => /(z\.object|\bschema\s*=|safeParse\()/m.test(file.content)),
+    covered: (content) => isBipBacked(content),
+    detail: "Runtime schemas are natural proof boundary seeds.",
+    recommendation: "Mirror important runtime schemas in TSCore so validated shapes also get Lean-checked contracts.",
+    findings,
+    scores,
+  });
+}
+
+type BoundaryGroup = {
+  name: string;
+  weight: number;
+  files: Array<{ relativePath: string; content: string }>;
+  covered: (content: string) => boolean;
+  detail: string;
+  recommendation: string;
+  findings: Finding[];
+  scores: ScoreItem[];
+};
+
+function inspectBoundaryGroup(group: BoundaryGroup): void {
+  if (group.files.length === 0) {
+    return;
+  }
+
+  const covered = group.files.filter((file) => group.covered(file.content));
+  const uncovered = group.files.filter((file) => !group.covered(file.content));
+  const earned = Math.round(group.weight * (covered.length / group.files.length));
+
+  group.scores.push({
+    category: "Discovered Boundaries",
+    name: group.name,
+    weight: group.weight,
+    earned,
+  });
+
+  if (uncovered.length === 0) {
+    return;
+  }
+
+  const examples = uncovered.slice(0, 3).map((file) => locationForBoundary(file)).join(", ");
+  const remaining = uncovered.length > 3 ? ` and ${uncovered.length - 3} more` : "";
+  const discoveredLabel = group.files.length === 1 ? "discovered file lacks" : "discovered files lack";
+
+  group.findings.push({
+    category: "Discovered Boundaries",
+    ruleId: `bip/${slugify(group.name)}`,
+    severity: "warn",
+    title: `${group.name} not fully proof-backed`,
+    detail: `${uncovered.length}/${group.files.length} ${discoveredLabel} a visible Bip boundary. ${group.detail}`,
+    recommendation: group.recommendation,
+    location: `${examples}${remaining}`,
+    affectedCount: uncovered.length,
+  });
 }
 
 function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Finding[], scores: ScoreItem[]): void {
@@ -71,6 +236,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (!existsSync(sourcePath)) {
     findings.push({
       category,
+      ruleId: "bip/missing-tscore-source",
       severity: "error",
       title: "Missing TSCore source",
       detail: `Configured module '${moduleConfig.name}' points at a missing source file.`,
@@ -84,6 +250,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (!existsSync(manifestPath)) {
     findings.push({
       category,
+      ruleId: "bip/missing-proof-manifest",
       severity: "error",
       title: "Missing proof manifest",
       detail: `Configured module '${moduleConfig.name}' has no generated proof manifest.`,
@@ -100,6 +267,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (manifest.leanCheck.status !== "checked") {
     findings.push({
       category,
+      ruleId: "bip/lean-proof-not-checked",
       severity: "error",
       title: "Lean proof not checked",
       detail: `Module '${moduleConfig.name}' reports Lean status '${manifest.leanCheck.status}'.`,
@@ -111,6 +279,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (manifest.verifiedExports.length === 0) {
     findings.push({
       category,
+      ruleId: "bip/no-verified-exports",
       severity: "warn",
       title: "No verified exports",
       detail: `Module '${moduleConfig.name}' has a manifest but no verified exports.`,
@@ -124,6 +293,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (uncheckedExport) {
     findings.push({
       category,
+      ruleId: "bip/unchecked-export",
       severity: "error",
       title: "Unchecked export",
       detail: `Export '${uncheckedExport.exportName}' is '${uncheckedExport.status}', not checked.`,
@@ -135,6 +305,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (proofPath && !existsSync(proofPath)) {
     findings.push({
       category,
+      ruleId: "bip/missing-lean-proof-file",
       severity: "error",
       title: "Missing Lean proof file",
       detail: `Module '${moduleConfig.name}' references a proof file that does not exist.`,
@@ -146,6 +317,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   if (statSync(sourcePath).mtimeMs > statSync(manifestPath).mtimeMs) {
     findings.push({
       category,
+      ruleId: "bip/stale-proof-manifest",
       severity: "warn",
       title: "TSCore source newer than manifest",
       detail: `Module '${moduleConfig.name}' changed after its proof manifest was generated.`,
@@ -169,6 +341,7 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
   if (!command) {
     findings.push({
       category,
+      ruleId: "bip/empty-check-command",
       severity: "warn",
       title: "Empty check command",
       detail: `Configured check '${check.name}' has no command.`,
@@ -192,6 +365,7 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
 
   findings.push({
     category,
+    ruleId: "bip/configured-check-failed",
     severity: "error",
     title: "Configured check failed",
     detail: `Check '${check.name}' exited with code ${result.exitCode}.`,
@@ -203,8 +377,9 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
 
 function printFindings(findings: Finding[]): void {
   const grouped = new Map<string, Finding[]>();
+  const sortedFindings = dedupeFindings(findings).toSorted(compareFindings);
 
-  for (const finding of findings) {
+  for (const finding of sortedFindings) {
     grouped.set(finding.category, [...(grouped.get(finding.category) ?? []), finding]);
   }
 
@@ -214,12 +389,14 @@ function printFindings(findings: Finding[]): void {
     return;
   }
 
-  for (const [category, items] of grouped) {
+  for (const [category, items] of [...grouped.entries()].toSorted(compareCategoryGroups)) {
     console.log(`${category} ${items.length} issue${items.length === 1 ? "" : "s"}`);
 
     for (const item of items) {
       const marker = item.severity === "error" ? "✖" : item.severity === "warn" ? "⚠" : "ℹ";
-      console.log(`  ${marker} ${item.title}`);
+      const affectedLabel = item.affectedCount && item.affectedCount > 1 ? ` ×${item.affectedCount}` : "";
+      console.log(`  ${marker} ${item.title}${affectedLabel}`);
+      console.log(`    Rule: ${item.ruleId}`);
       console.log(`    ${item.detail}`);
       console.log(`    ${item.recommendation}`);
 
@@ -232,14 +409,92 @@ function printFindings(findings: Finding[]): void {
   }
 }
 
+function dedupeFindings(findings: Finding[]): Finding[] {
+  const seen = new Set<string>();
+  const deduped: Finding[] = [];
+
+  for (const finding of findings) {
+    const key = [finding.ruleId, finding.location ?? "", finding.detail].join("\0");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduped.push(finding);
+  }
+
+  return deduped;
+}
+
+function compareCategoryGroups([categoryA, itemsA]: [string, Finding[]], [categoryB, itemsB]: [string, Finding[]]): number {
+  const severityDelta = severityRank(worstSeverity(itemsA)) - severityRank(worstSeverity(itemsB));
+
+  if (severityDelta !== 0) {
+    return severityDelta;
+  }
+
+  const impactDelta = totalAffectedCount(itemsB) - totalAffectedCount(itemsA);
+
+  if (impactDelta !== 0) {
+    return impactDelta;
+  }
+
+  return categoryA.localeCompare(categoryB);
+}
+
+function compareFindings(a: Finding, b: Finding): number {
+  const severityDelta = severityRank(a.severity) - severityRank(b.severity);
+
+  if (severityDelta !== 0) {
+    return severityDelta;
+  }
+
+  const impactDelta = affectedCount(b) - affectedCount(a);
+
+  if (impactDelta !== 0) {
+    return impactDelta;
+  }
+
+  return a.ruleId.localeCompare(b.ruleId);
+}
+
+function worstSeverity(findings: Finding[]): FindingSeverity {
+  if (findings.some((finding) => finding.severity === "error")) {
+    return "error";
+  }
+
+  if (findings.some((finding) => finding.severity === "warn")) {
+    return "warn";
+  }
+
+  return "info";
+}
+
+function severityRank(severity: FindingSeverity): number {
+  return severity === "error" ? 0 : severity === "warn" ? 1 : 2;
+}
+
+function affectedCount(finding: Finding): number {
+  return finding.affectedCount ?? 1;
+}
+
+function totalAffectedCount(findings: Finding[]): number {
+  return findings.reduce((sum, finding) => sum + affectedCount(finding), 0);
+}
+
 function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number): void {
   const total = scores.reduce((sum, item) => sum + item.weight, 0);
   const earned = scores.reduce((sum, item) => sum + item.earned, 0);
-  const score = total === 0 ? 0 : Math.round((earned / total) * 100);
-  const checkedModules = scores.filter((item) => item.category !== "Project Checks" && item.earned === item.weight).length;
+  const checkedModules = scores.filter((item) => item.category !== "Project Checks" && item.category !== "Discovered Boundaries" && item.earned === item.weight).length;
   const issueCount = findings.length;
 
-  console.log(`  Bip Verification Score: ${score} / 100`);
+  if (total === 0) {
+    console.log("  Bip Verification Score: unavailable");
+  } else {
+    console.log(`  Bip Verification Score: ${Math.round((earned / total) * 100)} / 100`);
+  }
+
   console.log("");
   console.log(`  ${issueCount} issue${issueCount === 1 ? "" : "s"} across ${scores.length} verification gate${scores.length === 1 ? "" : "s"} in ${elapsedMs}ms`);
   console.log(`  ${checkedModules} proof module${checkedModules === 1 ? "" : "s"} currently checked`);
@@ -270,12 +525,12 @@ function readPackageInfo(root: string): { framework: string; language: string } 
   return { framework: "Unknown", language: dependencies.typescript ? "TypeScript" : "JavaScript" };
 }
 
-function countSourceFiles(root: string): number {
+function collectSourceFiles(root: string): string[] {
   const ignored = new Set([".git", ".next", "node_modules", "dist", "build", "coverage"]);
-  let count = 0;
+  const files: string[] = [];
 
   walk(root);
-  return count;
+  return files;
 
   function walk(dir: string): void {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -291,10 +546,65 @@ function countSourceFiles(root: string): number {
       }
 
       if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
-        count += 1;
+        files.push(entryPath);
       }
     }
   }
+}
+
+function isBipBacked(content: string): boolean {
+  return content.includes("generated/bip") || content.includes("from \"bip\"") || content.includes("from 'bip'");
+}
+
+function isSiteMetadata(relativePath: string, content: string): boolean {
+  if (relativePath.includes("src/components/ui/")) {
+    return false;
+  }
+
+  return /export\s+const\s+metadata\b/.test(content) || /socialImage(Alt|Size)|siteTitle|siteDescription/.test(content);
+}
+
+function isNavigationOrLinks(relativePath: string, content: string): boolean {
+  if (relativePath.includes("src/components/ui/")) {
+    return false;
+  }
+
+  return (
+    /const\s+\w*(nav|link|social|route|page)\w*\s*=\s*\[/i.test(content) ||
+    /export\s+const\s+\w*(nav|link|social|route|page)\w*\s*[:=]/i.test(content)
+  );
+}
+
+function isContentCatalog(relativePath: string, content: string): boolean {
+  if (relativePath.includes("src/components/ui/")) {
+    return false;
+  }
+
+  if (/chart|analytics|table/i.test(relativePath)) {
+    return false;
+  }
+
+  const catalogPattern = /(const|export\s+const)\s+(\w*(track|project|post|catalog|album|tour|show|date)\w*)\s*[:=]/i;
+  const match = content.match(catalogPattern);
+
+  return Boolean(match && !/(nav|link|social|route|page)/i.test(match[2] ?? ""));
+}
+
+function locationForBoundary(file: { relativePath: string; content: string }): string {
+  const lines = file.content.split("\n");
+  const lineIndex = lines.findIndex((line) =>
+    /export\s+const\s+metadata\b|const\s+\w+\s*=\s*\[|export\s+const\s+\w+\s*[:=]|export\s+async\s+function\s+(GET|POST|PUT|PATCH|DELETE)|useReducer|currentUser|clerkMiddleware|fetch\(|process\.env|z\.object|\bschema\s*=/.test(line),
+  );
+
+  return lineIndex >= 0 ? `${file.relativePath}:${lineIndex + 1}` : file.relativePath;
+}
+
+function toPosix(filePath: string): string {
+  return filePath.split(path.sep).join("/");
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function relative(root: string, filePath: string): string {
