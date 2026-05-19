@@ -6,14 +6,14 @@
   "bin": {
     "bip": "./src/cli.ts"
   },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
-    "verify:core": "bun run src/cli.ts verify-core examples/personal-site.tscore.ts --out generated/tscore",
-    "verify:reyneill:site": "bun run scripts/verify-reyneill.ts site",
-    "verify:reyneill:writing": "bun run scripts/verify-reyneill.ts writing",
-    "verify:reyneill:projects": "bun run scripts/verify-reyneill.ts projects",
-    "verify:reyneill": "bun run scripts/verify-reyneill.ts",
+    "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
+    "scan:example": "bun run src/cli.ts scan ../reyneill",
     "test:tscore": "bun run scripts/check-tscore-validation.ts"
   },
   "dependencies": {

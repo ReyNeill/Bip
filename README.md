@@ -10,17 +10,49 @@ The first MVP extracts `//@` contracts from exported TypeScript functions, emits
 bun install
 bun run verify:example
 bun run verify:core
-bun run verify:reyneill
+bun run scan:example
 bun run typecheck
 ```
 
 Lean is optional for the scaffold. If `lean` is available on `PATH`, `bip verify` will run it against generated proof files. If not, the manifest records the check as skipped.
 
+## Project Config
+
+Projects use Bip without modifying the Bip repo by adding a project-owned `bip.config.ts`:
+
+```ts
+import { defineBipConfig } from "bip";
+
+export default defineBipConfig({
+  modules: [
+    {
+      name: "site",
+      source: "bip/site.tscore.ts",
+      outDir: "src/generated/bip/site",
+      category: "Site Proofs",
+      weight: 30,
+    },
+  ],
+  checks: [
+    {
+      name: "generated-artifacts-current",
+      command: ["bun", "scripts/check-bip-generated.ts"],
+      category: "Project Checks",
+      weight: 20,
+    },
+  ],
+});
+```
+
+`bip verify-project .` loads the config, generates runtime TypeScript and Lean artifacts for each module, runs Lean, and writes proof manifests.
+
+`bip scan .` is the adoption scanner. It detects the project context, checks configured proof modules and project gates, then prints a React-Doctor-style score with categorized diagnostics.
+
 ## TSCore
 
-`bun run verify:core` demonstrates the next product layer: a tiny TSCore IR that emits both runtime TypeScript and Lean from the same source object. The first example models personal-site page metadata helpers and a publish-state reducer contract.
+`bun run verify:core` demonstrates the next product layer: a tiny TSCore IR that emits both runtime TypeScript and Lean from the same source object. The generic example models route helpers and a publish-state reducer contract.
 
-`bun run verify:reyneill` generates proof-backed runtime modules and Lean artifacts into the Reyneill website's `src/generated/bip` directory, where the personal website imports generated metadata, navigation data, the writing post index, and the Neill Industries project catalog. It defaults to `/Users/reyneill/Documents/code/reyneill`; set `BIP_REYNEILL_SITE_ROOT=/path/to/reyneill` to target another checkout.
+The Reyneill website is now a consumer project rather than hardcoded Bip behavior. Its `bip.config.ts` and `bip/*.tscore.ts` modules live in `/Users/reyneill/Documents/code/reyneill`, and generated artifacts are written to that site's `src/generated/bip` directory.
 
 Metadata and navigation rendering use generated field helpers such as `pageTitle`, `pageDescription`, `routePath`, and `routeLabel`, each tied to a Lean-checked `returnsField` theorem.
 
@@ -58,7 +90,7 @@ The project catalog exposes generated helpers for names, descriptions, logos, UR
 
 The publish API uses generated success and error constructors for its result union, so both response branches are tied to Lean-checked `returnsVariant` theorems.
 The post lookup API now constructs and validates `year`/`slug` through generated TSCore helpers, so public writing request parameters are covered by Lean-checked record and non-empty predicate theorems.
-The Reyneill writing and project modules are now built through a source adapter in `src/adapters/reyneill.ts`; writing reads the published post index, and projects read the personal site's `src/data/neill-projects.json` before emitting runtime TypeScript and Lean proofs.
+The Reyneill writing and project modules are built through a project-owned source adapter under the website's `bip/` directory; writing reads the published post index, and projects read the personal site's `src/data/neill-projects.json` before emitting runtime TypeScript and Lean proofs.
 The same adapter now derives `siteRoutes`, `siteMetadata`, and `primaryNavigation` from the personal site's `src/data/site-core.json`, so top-level metadata and navigation are site-owned data with generated runtime helpers and Lean-checked route contracts.
 Footer ownership and contact links also come from `site-core.json`. TSCore now supports an `allItemsFieldStartsWithOneOf` constant contract, which Lean-checks mixed URL schemes such as `mailto:` and `https://` for generated contact metadata.
 Named page metadata for Writing and Neill Industries is also derived from `site-core.json`, with generated `SitePage` constants and a `pageRoute` accessor so Next page metadata and headings can use the same Lean-checked model as navigation.
