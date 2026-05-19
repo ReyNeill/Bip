@@ -1,0 +1,19 @@
+{
+  "name": "bip",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "bip": "./src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.3"
+  }
+}

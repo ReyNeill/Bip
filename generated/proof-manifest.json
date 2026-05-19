@@ -1,0 +1,26 @@
+{
+  "checker": "lean4",
+  "generatedAt": "2026-05-19T18:01:46.816Z",
+  "source": "examples/counter.ts",
+  "leanCheck": {
+    "status": "checked",
+    "detail": "Lean checked 1 proof file(s)."
+  },
+  "verifiedExports": [
+    {
+      "exportName": "decrement",
+      "model": "CounterNatReducer",
+      "proofFile": "proofs/decrement.lean",
+      "requires": [
+        "state.count >= 0"
+      ],
+      "ensures": [
+        "result.count >= 0"
+      ],
+      "theoremNames": [
+        "Bip.Generated.decrement_preserves_nonnegative"
+      ],
+      "status": "checked"
+    }
+  ]
+}
