@@ -1,0 +1,818 @@
+{
+  "checker": "lean4",
+  "generatedAt": "2026-05-19T21:24:36.700Z",
+  "source": "examples/personal-site.tscore.ts",
+  "leanCheck": {
+    "status": "checked",
+    "detail": "Lean checked 1 proof file(s)."
+  },
+  "verifiedExports": [
+    {
+      "exportName": "siteRoutes",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "nonEmptyArray",
+        "allItemsFieldNonEmpty",
+        "allItemsFieldNonEmpty",
+        "allItemsFieldUnique",
+        "allItemsFieldStartsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.siteRoutes_nonempty",
+        "Bip.Generated.TSCore.siteRoutes_all_path_nonempty",
+        "Bip.Generated.TSCore.siteRoutes_all_label_nonempty",
+        "Bip.Generated.TSCore.siteRoutes_all_path_unique",
+        "Bip.Generated.TSCore.siteRoutes_all_path_starts_with"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "siteMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.siteMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "primaryNavigation",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "nonEmptyArray",
+        "allItemsFieldUnique",
+        "allItemsFieldStartsWith",
+        "allItemsFieldInConstant"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.primaryNavigation_nonempty",
+        "Bip.Generated.TSCore.primaryNavigation_all_path_unique",
+        "Bip.Generated.TSCore.primaryNavigation_all_path_starts_with",
+        "Bip.Generated.TSCore.primaryNavigation_all_path_in_siteRoutes"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPageMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPageMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "neillIndustriesPageMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.neillIndustriesPageMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "adminPageMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.adminPageMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "dashboardPageMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.dashboardPageMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "signInPageMetadata",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.signInPageMetadata_title_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfile",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfile_headline_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "siteFooter",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "fieldEquals"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.siteFooter_ownerName_eq"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "contactLinks",
+      "model": "TSCoreConstant",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "nonEmptyArray",
+        "allItemsFieldNonEmpty",
+        "allItemsFieldNonEmpty",
+        "allItemsFieldNonEmpty",
+        "allItemsFieldUnique",
+        "allItemsFieldStartsWithOneOf"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.contactLinks_nonempty",
+        "Bip.Generated.TSCore.contactLinks_all_label_nonempty",
+        "Bip.Generated.TSCore.contactLinks_all_href_nonempty",
+        "Bip.Generated.TSCore.contactLinks_all_icon_nonempty",
+        "Bip.Generated.TSCore.contactLinks_all_label_unique",
+        "Bip.Generated.TSCore.contactLinks_all_href_starts_with_one_of"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "pageTitle",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.pageTitle_returns_page_title"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "pageDescription",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.pageDescription_returns_page_description"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "pageRoute",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.pageRoute_returns_page_route"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "privatePageTitle",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.privatePageTitle_returns_page_title"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "privatePageDescription",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.privatePageDescription_returns_page_description"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "privatePageRobotsIndex",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.privatePageRobotsIndex_returns_page_robotsIndex"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "privatePageRobotsFollow",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.privatePageRobotsFollow_returns_page_robotsFollow"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileHeadline",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileHeadline_returns_profile_headline"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileMission",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileMission_returns_profile_mission"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileRolePrefix",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileRolePrefix_returns_profile_rolePrefix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileEmployerLabel",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileEmployerLabel_returns_profile_employerLabel"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileEmployerHref",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileEmployerHref_returns_profile_employerHref"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileRoleSuffix",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileRoleSuffix_returns_profile_roleSuffix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "homeProfileContactLead",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.homeProfileContactLead_returns_profile_contactLead"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "routePath",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.routePath_returns_route_path"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "routeLabel",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.routeLabel_returns_route_label"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "footerCopyrightYear",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.footerCopyrightYear_returns_footer_copyrightYear"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "footerOwnerName",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.footerOwnerName_returns_footer_ownerName"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "contactLinkLabel",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.contactLinkLabel_returns_link_label"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "contactLinkHref",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.contactLinkHref_returns_link_href"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "contactLinkIcon",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.contactLinkIcon_returns_link_icon"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPublicPath",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsStartsWith",
+        "returnsEndsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPublicPath_returns_prefix",
+        "Bip.Generated.TSCore.writingPublicPath_returns_suffix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPublicFilePath",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsStartsWith",
+        "returnsEndsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPublicFilePath_returns_prefix",
+        "Bip.Generated.TSCore.writingPublicFilePath_returns_suffix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPublicIndexHref",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsStartsWith",
+        "returnsEndsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPublicIndexHref_returns_prefix",
+        "Bip.Generated.TSCore.writingPublicIndexHref_returns_suffix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishedWritingTitle",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsEndsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishedWritingTitle_returns_suffix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishedWritingByline",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsStartsWith"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishedWritingByline_returns_prefix"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishPostSuccess",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "recordConstructor"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishPostSuccess_ok_eq",
+        "Bip.Generated.TSCore.publishPostSuccess_path_eq",
+        "Bip.Generated.TSCore.publishPostSuccess_url_eq",
+        "Bip.Generated.TSCore.publishPostSuccess_returns_record"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingManifestEntry",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "recordConstructor"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingManifestEntry_title_eq",
+        "Bip.Generated.TSCore.writingManifestEntry_path_eq",
+        "Bip.Generated.TSCore.writingManifestEntry_date_eq",
+        "Bip.Generated.TSCore.writingManifestEntry_summary_eq",
+        "Bip.Generated.TSCore.writingManifestEntry_returns_record"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingManifestEntryTitle",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingManifestEntryTitle_returns_entry_title"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingManifestEntryPath",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingManifestEntryPath_returns_entry_path"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingManifestEntryDate",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingManifestEntryDate_returns_entry_date"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingManifestEntrySummary",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingManifestEntrySummary_returns_entry_summary"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPostLookup",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "recordConstructor"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPostLookup_year_eq",
+        "Bip.Generated.TSCore.writingPostLookup_slug_eq",
+        "Bip.Generated.TSCore.writingPostLookup_returns_record"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPostLookupYear",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPostLookupYear_returns_lookup_year"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "writingPostLookupSlug",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsField"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.writingPostLookupSlug_returns_lookup_slug"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "isWritingPostLookup",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "nonEmptyFieldsPredicate"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.isWritingPostLookup_year_empty_is_false",
+        "Bip.Generated.TSCore.isWritingPostLookup_slug_empty_is_false"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishSuccessResult",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsVariant"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishSuccessResult_returns_success"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "isPublishablePayload",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "nonEmptyFieldsPredicate"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.isPublishablePayload_title_empty_is_false",
+        "Bip.Generated.TSCore.isPublishablePayload_slug_empty_is_false"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishErrorResult",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "returnsVariant"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishErrorResult_returns_error"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "isPublishSuccess",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "variantPredicate"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.isPublishSuccess_success_is_success",
+        "Bip.Generated.TSCore.isPublishSuccess_error_is_not_success"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "isPublishError",
+      "model": "TSCoreFunction",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "variantPredicate"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.isPublishError_success_is_not_error",
+        "Bip.Generated.TSCore.isPublishError_error_is_error"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "publishTransition",
+      "model": "TSCoreStateMachine",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "draft + schedule -> scheduled",
+        "draft + publish -> published",
+        "draft + archive -> archived",
+        "scheduled + publish -> published",
+        "scheduled + archive -> archived",
+        "published + publish -> published",
+        "published + archive -> archived",
+        "draft + edit -> draft",
+        "scheduled + schedule -> scheduled",
+        "scheduled + edit -> scheduled",
+        "published + schedule -> published",
+        "published + edit -> published",
+        "archived + schedule -> archived",
+        "archived + publish -> archived",
+        "archived + archive -> archived",
+        "archived + edit -> archived",
+        "archived is terminal"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.publishTransition_draft_schedule_to_scheduled",
+        "Bip.Generated.TSCore.publishTransition_draft_publish_to_published",
+        "Bip.Generated.TSCore.publishTransition_draft_archive_to_archived",
+        "Bip.Generated.TSCore.publishTransition_scheduled_publish_to_published",
+        "Bip.Generated.TSCore.publishTransition_scheduled_archive_to_archived",
+        "Bip.Generated.TSCore.publishTransition_published_publish_to_published",
+        "Bip.Generated.TSCore.publishTransition_published_archive_to_archived",
+        "Bip.Generated.TSCore.publishTransition_draft_edit_stays_draft",
+        "Bip.Generated.TSCore.publishTransition_scheduled_schedule_stays_scheduled",
+        "Bip.Generated.TSCore.publishTransition_scheduled_edit_stays_scheduled",
+        "Bip.Generated.TSCore.publishTransition_published_schedule_stays_published",
+        "Bip.Generated.TSCore.publishTransition_published_edit_stays_published",
+        "Bip.Generated.TSCore.publishTransition_archived_schedule_stays_archived",
+        "Bip.Generated.TSCore.publishTransition_archived_publish_stays_archived",
+        "Bip.Generated.TSCore.publishTransition_archived_archive_stays_archived",
+        "Bip.Generated.TSCore.publishTransition_archived_edit_stays_archived",
+        "Bip.Generated.TSCore.publishTransition_archived_terminal"
+      ],
+      "status": "checked"
+    },
+    {
+      "exportName": "canPublishTransition",
+      "model": "TSCoreStateMachineGuard",
+      "proofFile": "proofs/PersonalSiteCore.lean",
+      "requires": [],
+      "ensures": [
+        "draft + schedule is allowed",
+        "draft + publish is allowed",
+        "draft + archive is allowed",
+        "scheduled + publish is allowed",
+        "scheduled + archive is allowed",
+        "published + publish is allowed",
+        "published + archive is allowed",
+        "draft + edit is blocked",
+        "scheduled + schedule is blocked",
+        "scheduled + edit is blocked",
+        "published + schedule is blocked",
+        "published + edit is blocked",
+        "archived + schedule is blocked",
+        "archived + publish is blocked",
+        "archived + archive is blocked",
+        "archived + edit is blocked"
+      ],
+      "theoremNames": [
+        "Bip.Generated.TSCore.canPublishTransition_draft_schedule_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_draft_publish_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_draft_archive_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_scheduled_publish_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_scheduled_archive_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_published_publish_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_published_archive_is_allowed",
+        "Bip.Generated.TSCore.canPublishTransition_draft_edit_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_scheduled_schedule_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_scheduled_edit_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_published_schedule_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_published_edit_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_archived_schedule_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_archived_publish_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_archived_archive_is_blocked",
+        "Bip.Generated.TSCore.canPublishTransition_archived_edit_is_blocked"
+      ],
+      "status": "checked"
+    }
+  ]
+}

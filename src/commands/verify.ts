@@ -1,7 +1,8 @@
-import { access, mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { extractContracts } from "../contracts/extract.ts";
 import type { ProofManifest, VerifiedExport } from "../contracts/types.ts";
+import { checkLean } from "../lean/check.ts";
 import { emitLeanArtifacts } from "../lean/emit.ts";
 import { writeTextFile } from "../utils/fs.ts";
 
@@ -61,64 +62,6 @@ export async function verify(options: VerifyOptions): Promise<void> {
   if (leanCheck.status === "failed") {
     process.exitCode = 1;
   }
-}
-
-async function checkLean(proofFiles: string[]): Promise<ProofManifest["leanCheck"]> {
-  if (proofFiles.length === 0) {
-    return {
-      status: "skipped",
-      detail: "No generated Lean proof files to check.",
-    };
-  }
-
-  const leanPath = await findCommand("lean");
-
-  if (!leanPath) {
-    return {
-      status: "skipped",
-      detail: "Lean was not found on PATH. Generated proof files were not kernel-checked.",
-    };
-  }
-
-  for (const proofFile of proofFiles) {
-    const proc = Bun.spawn([leanPath, proofFile], {
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      return {
-        status: "failed",
-        detail: `Lean failed for ${proofFile}:\n${stderr}`,
-      };
-    }
-  }
-
-  return {
-    status: "checked",
-    detail: `Lean checked ${proofFiles.length} proof file(s).`,
-  };
-}
-
-async function findCommand(command: string): Promise<string | null> {
-  const pathCandidates = (process.env.PATH ?? "").split(path.delimiter).map((dir) => path.join(dir, command));
-  const candidates = [
-    ...pathCandidates,
-    path.join(process.env.HOME ?? "", ".elan", "bin", command),
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {
-      // Keep searching PATH entries.
-    }
-  }
-
-  return null;
 }
 
 function printSummary(manifest: ProofManifest, outDir: string): void {

@@ -1,6 +1,6 @@
 {
   "checker": "lean4",
-  "generatedAt": "2026-05-19T18:01:46.816Z",
+  "generatedAt": "2026-05-19T18:07:49.320Z",
   "source": "examples/counter.ts",
   "leanCheck": {
     "status": "checked",

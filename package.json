@@ -8,7 +8,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated"
+    "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
+    "verify:core": "bun run src/cli.ts verify-core examples/personal-site.tscore.ts --out generated/tscore",
+    "verify:reyneill:site": "bun run scripts/verify-reyneill.ts site",
+    "verify:reyneill:writing": "bun run scripts/verify-reyneill.ts writing",
+    "verify:reyneill:projects": "bun run scripts/verify-reyneill.ts projects",
+    "verify:reyneill": "bun run scripts/verify-reyneill.ts",
+    "test:tscore": "bun run scripts/check-tscore-validation.ts"
   },
   "dependencies": {
     "typescript": "^5.9.3"

@@ -9,5 +9,5 @@
     "target": "ES2023",
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts", "examples/**/*.ts"]
+  "include": ["src/**/*.ts", "examples/**/*.ts", "scripts/**/*.ts"]
 }
