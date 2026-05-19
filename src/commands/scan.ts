@@ -77,6 +77,7 @@ async function loadOptionalBipConfig(root: string): Promise<Awaited<ReturnType<t
 
 function discoverBoundaries(root: string, sourceFiles: string[], findings: Finding[], scores: ScoreItem[]): void {
   const readableFiles = sourceFiles
+    .filter((filePath) => !filePath.includes(`${path.sep}bip${path.sep}`))
     .filter((filePath) => !filePath.includes(`${path.sep}src${path.sep}generated${path.sep}`))
     .filter((filePath) => !filePath.includes(`${path.sep}generated${path.sep}`))
     .map((filePath) => ({
@@ -133,7 +134,7 @@ function discoverBoundaries(root: string, sourceFiles: string[], findings: Findi
     name: "Auth and permissions",
     weight: 20,
     files: readableFiles.filter((file) => /(clerkMiddleware|currentUser|auth\(|ADMIN_EMAIL|ADMIN_USER|ADMIN_PASS|hasPermission|canAccess)/.test(file.content)),
-    covered: (content) => isBipBacked(content) && /(can[A-Z]\w+Transition|is[A-Z]\w+\(|Permission|Role|Access)/.test(content),
+    covered: isAuthBoundaryCovered,
     detail: "Auth and permission branches are high-risk control boundaries.",
     recommendation: "Model roles, protected routes, and allow/deny decisions as Bip predicates or state machines.",
     findings,
@@ -157,7 +158,7 @@ function discoverBoundaries(root: string, sourceFiles: string[], findings: Findi
     name: "External IO",
     weight: 15,
     files: readableFiles.filter((file) => /(fetch\(|process\.env\.(?!(NODE_ENV|NEXT_PUBLIC_|VERCEL_URL\b|VERCEL_PROJECT_PRODUCTION_URL\b))|GitHub|stripe|supabase|convex|prisma|createClient)/i.test(file.content)),
-    covered: (content) => isBipBacked(content) && /(Payload|Result|Success|Error|is[A-Z]\w+\()/m.test(content),
+    covered: isExternalBoundaryCovered,
     detail: "Network, environment, database, and service boundaries should have explicit contracts.",
     recommendation: "Wrap external inputs and outputs with Bip constructors, predicates, or schemas before use.",
     findings,
@@ -554,6 +555,38 @@ function collectSourceFiles(root: string): string[] {
 
 function isBipBacked(content: string): boolean {
   return content.includes("generated/bip") || content.includes("from \"bip\"") || content.includes("from 'bip'");
+}
+
+function isAuthBoundaryCovered(content: string): boolean {
+  if (!isBipBacked(content)) {
+    return false;
+  }
+
+  if (/clerkMiddleware|createRouteMatcher/.test(content)) {
+    return /protectedRouteAccess/.test(content) && /protectedRouteAccessPath\(/.test(content);
+  }
+
+  if (/currentUser|ADMIN_EMAIL/.test(content)) {
+    return /adminAccessEmail\(/.test(content) && /isAdminAccessEmail\(/.test(content);
+  }
+
+  if (/ADMIN_USER|ADMIN_PASS|Basic\s+realm|authorization/i.test(content)) {
+    return /(Admin|Auth|Credential|Access)\w*\(/.test(content) && /is(Admin|Auth|Credential|Access)\w*\(/.test(content);
+  }
+
+  return /(can[A-Z]\w+Transition|is[A-Z]\w+\(|Permission|Role|Access)/.test(content);
+}
+
+function isExternalBoundaryCovered(content: string): boolean {
+  if (!isBipBacked(content)) {
+    return false;
+  }
+
+  if (/process\.env\.GITHUB_|api\.github\.com|GitHub/i.test(content)) {
+    return /\w*GitHubPayload\(/.test(content) && /is\w*GitHubPayload\(/.test(content);
+  }
+
+  return /(Payload|Result|Success|Error|is[A-Z]\w+\()/m.test(content);
 }
 
 function isSiteMetadata(relativePath: string, content: string): boolean {
