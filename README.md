@@ -30,7 +30,17 @@ The release script requires a clean git worktree, runs the local checks, bumps t
 
 ## Project Config
 
-Projects use Bip without modifying the Bip repo by adding a project-owned `bip.config.ts`:
+Projects use Bip without modifying the Bip repo:
+
+```sh
+bun add -d bip@npm:@reyneill/bip
+bunx bip scan
+bunx bip init
+bunx bip verify
+bunx bip scan
+```
+
+The first scan is discovery-only and identifies the boundaries worth proof-backing. `bip init` adds a project-owned `bip.config.ts`:
 
 ```ts
 import { defineBipConfig } from "bip";

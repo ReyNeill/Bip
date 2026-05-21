@@ -4,25 +4,28 @@ Bip is an experimental proof-carrying TypeScript tool. A consumer project define
 
 ## Install
 
-The unscoped npm name `bip` is already taken, so the registry package uses `@reyneill/bip`. Install it with an alias so project-owned `bip.config.ts` and TSCore modules can continue importing from `"bip"`:
+The unscoped npm name `bip` is already taken, so the registry package uses `@reyneill/bip`. Install it with the shortest practical alias command so project-owned `bip.config.ts` and TSCore modules can still import from `"bip"`:
 
 ```sh
-bun add --dev bip@npm:@reyneill/bip
+bun add -d bip@npm:@reyneill/bip
 ```
 
 When developing Bip locally against a consumer project, use a local file dependency instead:
 
 ```sh
-bun add --dev file:../Bip
+bun add -d file:../Bip
 ```
 
-Then run Bip through the local package binary:
+Then run the first-time loop from the project root:
 
 ```sh
+bunx bip scan
 bunx bip init
 bunx bip verify
 bunx bip scan
 ```
+
+The first scan is discovery-only and tells you which boundaries are worth proof-backing. `init` adds the starter config/module, `verify` generates the proof artifacts, and the second scan measures the new proof coverage.
 
 `bip init` accepts an optional target directory:
 
