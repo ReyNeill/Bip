@@ -89,7 +89,7 @@ const boundaryRules: BoundaryRule[] = [
   {
     name: "Reducers and state",
     weight: 15,
-    matches: (file) => !file.relativePath.includes("src/components/ui/") && /(useReducer|function\s+\w*Reducer|const\s+\w*Reducer|=>\s*state)/.test(file.content),
+    matches: (file) => isReducerOrStateBoundary(file.relativePath, file.content),
     covered: (content) => isBipBacked(content) && /(can[A-Z]\w+Transition|Transition\(|dispatch\()/m.test(content),
     detail: "Reducers and local state machines should preserve explicit invariants.",
     recommendation: "Back domain reducers with a Bip state machine and drive UI guards from generated helpers.",
@@ -233,6 +233,27 @@ function isContentCatalog(relativePath: string, content: string): boolean {
     const tokens = identifierTokens(name);
     return tokens.some((token) => contentCatalogTokens.has(token)) && !tokens.some((token) => navigationTokens.has(token));
   });
+}
+
+function isReducerOrStateBoundary(relativePath: string, content: string): boolean {
+  if (relativePath.includes("src/components/ui/")) {
+    return false;
+  }
+
+  const source = removeStringLiterals(content);
+  return (
+    /useReducer\b/.test(source) ||
+    /function\s+(?!emit[A-Z])\w*Reducer\b/.test(source) ||
+    /const\s+\w*Reducer\b/.test(source) ||
+    /=>\s*state\b/.test(source)
+  );
+}
+
+function removeStringLiterals(content: string): string {
+  return content
+    .replace(/`(?:\\[\s\S]|[^`\\])*`/g, "\"\"")
+    .replace(/"(?:\\[\s\S]|[^"\\])*"/g, "\"\"")
+    .replace(/'(?:\\[\s\S]|[^'\\])*'/g, "''");
 }
 
 const contentCatalogTokens = new Set(["track", "tracks", "project", "projects", "post", "posts", "catalog", "catalogs", "album", "albums", "tour", "tours", "show", "shows", "date", "dates"]);

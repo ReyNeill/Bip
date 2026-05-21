@@ -23,9 +23,11 @@
     "publish:dry-run": "bun publish --dry-run --access public",
     "publish:public": "bun publish --access public",
     "release:patch": "bun run scripts/release-patch.ts",
+    "verify:self": "bun node_modules/bip/src/cli.ts verify",
     "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
     "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
     "scan:self": "bun run src/cli.ts scan .",
+    "scan:published": "bun node_modules/bip/src/cli.ts scan .",
     "test:init": "bun run scripts/check-init-fixtures.ts",
     "test:scan": "bun run scripts/check-scan-fixtures.ts",
     "test:tscore": "bun run scripts/check-tscore-validation.ts"
@@ -34,6 +36,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.3"
+    "@types/bun": "^1.3.3",
+    "bip": "npm:@reyneill/bip@^0.1.0"
   }
 }

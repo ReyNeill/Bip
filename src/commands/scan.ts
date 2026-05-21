@@ -5,7 +5,23 @@ import { loadBipConfig } from "../config/load.ts";
 import type { BipModuleConfig, BipScanCheck } from "../config/types.ts";
 import { discoverBoundaries } from "../scan/discover-boundaries.ts";
 import type { Finding, FindingSeverity, ScoreItem } from "../scan/types.ts";
+import {
+  builtInScanCategories,
+  scanCategoryName,
+  scanGateStatusTransition,
+  type ScanFindingSignal,
+  type ScanGateStatus,
+} from "../generated/bip/runtime/ScanScoring.ts";
 import { readPackageVersion } from "../version.ts";
+
+const [projectChecksCategory, discoveredBoundariesCategory] = builtInScanCategories;
+
+if (!projectChecksCategory || !discoveredBoundariesCategory) {
+  throw new Error("Generated Bip scan categories are missing.");
+}
+
+const PROJECT_CHECKS_CATEGORY = scanCategoryName(projectChecksCategory);
+const DISCOVERED_BOUNDARIES_CATEGORY = scanCategoryName(discoveredBoundariesCategory);
 
 export async function scanProject(rootPath: string): Promise<void> {
   const startedAt = Date.now();
@@ -161,15 +177,13 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
     });
   }
 
-  const moduleFindings = findings.slice(findingStart);
-  const hasError = moduleFindings.some((finding) => finding.severity === "error");
-  const hasWarning = moduleFindings.some((finding) => finding.severity === "warn");
-  score.earned = hasError ? 0 : hasWarning ? Math.round(weight * 0.5) : weight;
+  const status = scoreGateStatus(findings.slice(findingStart));
+  score.earned = status === "error" ? 0 : status === "warn" ? Math.round(weight * 0.5) : weight;
   scores.push(score);
 }
 
 function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding[], scores: ScoreItem[]): void {
-  const category = check.category ?? "Project Checks";
+  const category = check.category ?? PROJECT_CHECKS_CATEGORY;
   const weight = check.weight ?? 10;
   const [command, ...args] = check.command;
 
@@ -314,6 +328,20 @@ function affectedCount(finding: Finding): number {
   return finding.affectedCount ?? 1;
 }
 
+function scoreGateStatus(findings: Finding[]): ScanGateStatus {
+  let status: ScanGateStatus = "clean";
+
+  for (const finding of findings) {
+    status = scanGateStatusTransition(status, severitySignal(finding.severity));
+  }
+
+  return status;
+}
+
+function severitySignal(severity: FindingSeverity): ScanFindingSignal {
+  return severity === "error" ? "observeError" : severity === "warn" ? "observeWarn" : "observeInfo";
+}
+
 function totalAffectedCount(findings: Finding[]): number {
   return findings.reduce((sum, finding) => sum + affectedCount(finding), 0);
 }
@@ -321,7 +349,9 @@ function totalAffectedCount(findings: Finding[]): number {
 function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number): void {
   const total = scores.reduce((sum, item) => sum + item.weight, 0);
   const earned = scores.reduce((sum, item) => sum + item.earned, 0);
-  const checkedModules = scores.filter((item) => item.category !== "Project Checks" && item.category !== "Discovered Boundaries" && item.earned === item.weight).length;
+  const checkedModules = scores.filter(
+    (item) => item.category !== PROJECT_CHECKS_CATEGORY && item.category !== DISCOVERED_BOUNDARIES_CATEGORY && item.earned === item.weight,
+  ).length;
   const issueCount = findings.length;
 
   if (total === 0) {

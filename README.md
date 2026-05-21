@@ -9,6 +9,7 @@ The first MVP extracts `//@` contracts from exported TypeScript functions, emits
 ```sh
 bun install
 bun run src/cli.ts init [directory]
+bun run verify:self
 bun run verify:example
 bun run verify:core
 bun run scan:self
@@ -62,6 +63,18 @@ export default defineBipConfig({
 `bip init` creates a starter `bip.config.ts`, `bip/example.tscore.ts`, and a short `AGENTS.md` note.
 
 For installation, config, TSCore authoring, verification, scan output, and proof manifest details, see [Getting Started](docs/getting-started.md).
+
+## Dogfooding
+
+Bip uses the published package alias as its own consumer:
+
+```sh
+bun run verify:self
+bun run scan:self
+bun run scan:published
+```
+
+`verify:self` runs the installed `bip@npm:@reyneill/bip` package against this repo's `bip.config.ts`. `scan:self` checks the current source, while `scan:published` checks the currently installed published scanner. The first self-proof module backs scan scoring/category invariants and emits checked runtime helpers under `src/generated/bip`.
 
 ## TSCore
 

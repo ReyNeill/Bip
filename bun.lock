@@ -9,6 +9,7 @@
       },
       "devDependencies": {
         "@types/bun": "^1.3.3",
+        "bip": "npm:@reyneill/bip@^0.1.0",
       },
     },
   },
@@ -16,6 +17,8 @@
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 
     "@types/node": ["@types/node@25.9.1", "", { "dependencies": { "undici-types": ">=7.24.0 <7.24.7" } }, "sha512-xfrlY7UD5rMJk3ZVJP8BNzS28J36YJg+xp+LPXV1TdWxr8uMH5A860QNxYDGQe/ylDSgjxE52Q9VnO7p75tJxg=="],
+
+    "bip": ["@reyneill/bip@0.1.0", "", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "bip": "src/cli.ts" } }, "sha512-h4uFYaowzf9yZb9oslMWCjvlKPltqghPoRQFKd1KrWm9+2FjbKr5fhkWfZrBKDLGqgEjF6KOGAD0xNTNtBzI8w=="],
 
     "bun-types": ["bun-types@1.3.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ=="],
 

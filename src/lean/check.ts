@@ -1,22 +1,21 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
-import type { ProofManifest } from "../contracts/types.ts";
+import {
+  leanCheckChecked,
+  leanCheckFailed,
+  leanCheckSkipped,
+  type LeanCheckResult,
+} from "../generated/bip/runtime/ScanScoring.ts";
 
-export async function checkLean(proofFiles: string[]): Promise<ProofManifest["leanCheck"]> {
+export async function checkLean(proofFiles: string[]): Promise<LeanCheckResult> {
   if (proofFiles.length === 0) {
-    return {
-      status: "skipped",
-      detail: "No generated Lean proof files to check.",
-    };
+    return leanCheckSkipped("No generated Lean proof files to check.");
   }
 
   const leanPath = await findCommand("lean");
 
   if (!leanPath) {
-    return {
-      status: "skipped",
-      detail: "Lean was not found on PATH. Generated proof files were not kernel-checked.",
-    };
+    return leanCheckSkipped("Lean was not found on PATH. Generated proof files were not kernel-checked.");
   }
 
   for (const proofFile of proofFiles) {
@@ -30,17 +29,11 @@ export async function checkLean(proofFiles: string[]): Promise<ProofManifest["le
       const stderr = await new Response(proc.stderr).text();
       const stdout = await new Response(proc.stdout).text();
       const output = [stderr, stdout].filter(Boolean).join("\n");
-      return {
-        status: "failed",
-        detail: `Lean failed for ${proofFile}:\n${output}`,
-      };
+      return leanCheckFailed(`Lean failed for ${proofFile}:\n${output}`);
     }
   }
 
-  return {
-    status: "checked",
-    detail: `Lean checked ${proofFiles.length} proof file(s).`,
-  };
+  return leanCheckChecked(`Lean checked ${proofFiles.length} proof file(s).`);
 }
 
 async function findCommand(command: string): Promise<string | null> {

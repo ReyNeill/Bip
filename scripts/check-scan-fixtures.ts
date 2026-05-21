@@ -107,6 +107,14 @@ await withFixture(
       content: `const candidate = "bip.config.ts";\nconst pathCandidates = ["lean"];\nconst catalogPattern = /catalog/;\n`,
     },
     {
+      path: "src/lean/emit.ts",
+      content: `function emitCounterNatReducer() {\n  return "generated reducer proof";\n}\n`,
+    },
+    {
+      path: "src/tscore/emit-lean.ts",
+      content: "const reducer = `| state, _ => state`;",
+    },
+    {
       path: "src/scan/discover-boundaries.ts",
       content: source(["const boundaryRules = [/(", "current", "User|", "fetch", "\\(|=>\\s*state)/];\n"]),
     },
