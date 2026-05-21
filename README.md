@@ -8,10 +8,10 @@ The first MVP extracts `//@` contracts from exported TypeScript functions, emits
 
 ```sh
 bun install
-bun run src/cli.ts init
+bun run src/cli.ts init [directory]
 bun run verify:example
 bun run verify:core
-bun run scan:example
+bun run scan:self
 bun run typecheck
 ```
 
@@ -50,6 +50,8 @@ export default defineBipConfig({
 `bip scan` is the adoption scanner. It detects the project context, checks configured proof modules and project gates, then prints a React-Doctor-style score with categorized diagnostics.
 
 `bip init` creates a starter `bip.config.ts`, `bip/example.tscore.ts`, and a short `AGENTS.md` note.
+
+For installation, config, TSCore authoring, verification, scan output, and proof manifest details, see [Getting Started](docs/getting-started.md).
 
 ## TSCore
 

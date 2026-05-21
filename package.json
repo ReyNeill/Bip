@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
     "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
-    "scan:example": "bun run src/cli.ts scan .",
+    "scan:self": "bun run src/cli.ts scan .",
+    "test:init": "bun run scripts/check-init-fixtures.ts",
+    "test:scan": "bun run scripts/check-scan-fixtures.ts",
     "test:tscore": "bun run scripts/check-tscore-validation.ts"
   },
   "dependencies": {

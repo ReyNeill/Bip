@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { statSync } from "node:fs";
 import { verify } from "./commands/verify.ts";
 import { verifyCore } from "./commands/verify-core.ts";
 import { verifyProject } from "./commands/verify-project.ts";
@@ -24,7 +23,7 @@ async function main(): Promise<void> {
   }
 
   if (args.command === "init") {
-    await initProject();
+    await initProject(args.sourcePath ?? process.cwd());
     return;
   }
 
@@ -90,25 +89,18 @@ function parseArgs(args: string[]): ParsedArgs {
 
 function printUsage(): void {
   console.log(`Usage:
-  bun run src/cli.ts init
+  bun run src/cli.ts init [directory]
   bun run src/cli.ts verify
   bun run src/cli.ts verify <source.ts> [--out generated]
   bun run src/cli.ts verify-core <source.tscore.ts> [--out generated/tscore]
   bun run src/cli.ts scan
 
 Example:
+  bun run src/cli.ts init ../my-app
   bun run src/cli.ts verify
   bun run src/cli.ts verify examples/counter.ts --out generated
   bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore
   bun run src/cli.ts scan`);
-}
-
-function isDirectory(filePath: string): boolean {
-  try {
-    return statSync(filePath).isDirectory();
-  } catch {
-    return false;
-  }
 }
 
 main().catch((error: unknown) => {

@@ -15,7 +15,7 @@ export async function initProject(rootPath = process.cwd()): Promise<void> {
 
   mkdirSync(bipDir, { recursive: true });
 
-  await writeIfMissing(configPath, `import { defineBipConfig } from "bip";
+  await writeIfMissing(root, configPath, `import { defineBipConfig } from "bip";
 
 export default defineBipConfig({
   modules: [
@@ -30,7 +30,7 @@ export default defineBipConfig({
 });
 `);
 
-  await writeIfMissing(modulePath, `import { defineModule } from "bip";
+  await writeIfMissing(root, modulePath, `import { defineModule } from "bip";
 
 const StringType = { kind: "primitive", name: "String" } as const;
 
@@ -77,33 +77,33 @@ export default defineModule({
 });
 `);
 
-  await appendAgentsNote(agentsPath);
+  await appendAgentsNote(root, agentsPath);
 
   console.log("Bip initialized.");
   console.log("Next: bunx bip verify");
   console.log("Then: bunx bip scan");
 }
 
-async function writeIfMissing(filePath: string, content: string): Promise<void> {
+async function writeIfMissing(root: string, filePath: string, content: string): Promise<void> {
   if (existsSync(filePath)) {
-    console.log(`Skipped existing ${path.relative(process.cwd(), filePath)}`);
+    console.log(`Skipped existing ${path.relative(root, filePath)}`);
     return;
   }
 
   await writeTextFile(filePath, content);
-  console.log(`Created ${path.relative(process.cwd(), filePath)}`);
+  console.log(`Created ${path.relative(root, filePath)}`);
 }
 
-async function appendAgentsNote(filePath: string): Promise<void> {
+async function appendAgentsNote(root: string, filePath: string): Promise<void> {
   const hadAgentsFile = existsSync(filePath);
   const current = existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
 
   if (current.includes("bunx bip verify") || current.includes("## Bip")) {
-    console.log(`Skipped existing ${path.relative(process.cwd(), filePath)} Bip note`);
+    console.log(`Skipped existing ${path.relative(root, filePath)} Bip note`);
     return;
   }
 
   const prefix = current.trim().length > 0 ? `${current.trimEnd()}\n\n` : "";
   await writeTextFile(filePath, `${prefix}${AGENTS_NOTE}`);
-  console.log(`${hadAgentsFile ? "Updated" : "Created"} ${path.relative(process.cwd(), filePath)}`);
+  console.log(`${hadAgentsFile ? "Updated" : "Created"} ${path.relative(root, filePath)}`);
 }
