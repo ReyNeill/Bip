@@ -5,6 +5,7 @@ import { loadBipConfig } from "../config/load.ts";
 import type { BipModuleConfig, BipScanCheck } from "../config/types.ts";
 import { discoverBoundaries } from "../scan/discover-boundaries.ts";
 import type { Finding, FindingSeverity, ScoreItem } from "../scan/types.ts";
+import { readPackageVersion } from "../version.ts";
 
 export async function scanProject(rootPath: string): Promise<void> {
   const startedAt = Date.now();
@@ -16,7 +17,7 @@ export async function scanProject(rootPath: string): Promise<void> {
   const findings: Finding[] = [];
   const scores: ScoreItem[] = [];
 
-  console.log("bip scan v0.0.0");
+  console.log(`bip scan v${readPackageVersion()}`);
   console.log("");
   console.log(`Scanning ${root}...`);
   console.log("");

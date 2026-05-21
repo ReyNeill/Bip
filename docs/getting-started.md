@@ -4,19 +4,19 @@ Bip is an experimental proof-carrying TypeScript tool. A consumer project define
 
 ## Install
 
-For local development before Bip is published:
+The unscoped npm name `bip` is already taken, so the registry package uses `@reyneill/bip`. Install it with an alias so project-owned `bip.config.ts` and TSCore modules can continue importing from `"bip"`:
+
+```sh
+bun add --dev bip@npm:@reyneill/bip
+```
+
+When developing Bip locally against a consumer project, use a local file dependency instead:
 
 ```sh
 bun add --dev file:../Bip
 ```
 
-After Bip is published to the registry, new projects should use:
-
-```sh
-bun add --dev bip
-```
-
-Then run Bip through the package binary:
+Then run Bip through the local package binary:
 
 ```sh
 bunx bip init

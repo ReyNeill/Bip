@@ -1,7 +1,7 @@
 {
-  "name": "bip",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@reyneill/bip",
+  "version": "0.1.0",
+  "description": "Experimental proof-carrying TypeScript package tooling.",
   "type": "module",
   "bin": {
     "bip": "./src/cli.ts"
@@ -9,8 +9,20 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "docs",
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "pack:dry-run": "bun pm pack --dry-run",
+    "publish:dry-run": "bun publish --dry-run --access public",
+    "publish:public": "bun publish --access public",
+    "release:patch": "bun run scripts/release-patch.ts",
     "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
     "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
     "scan:self": "bun run src/cli.ts scan .",

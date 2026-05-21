@@ -17,6 +17,16 @@ bun run typecheck
 
 Lean is optional for the scaffold. If `lean` is available on `PATH`, `bip verify` will run it against generated proof files. If not, the manifest records the check as skipped.
 
+## Release
+
+Patch releases are manual:
+
+```sh
+bun run release:patch
+```
+
+The release script requires a clean git worktree, runs the local checks, bumps the package patch version, commits the version bump, packs the package, and publishes it publicly. Pass npm publish flags after the script when needed, for example `bun run release:patch --otp 123456`.
+
 ## Project Config
 
 Projects use Bip without modifying the Bip repo by adding a project-owned `bip.config.ts`:
