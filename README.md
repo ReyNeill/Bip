@@ -16,7 +16,7 @@ bun run scan:self
 bun run typecheck
 ```
 
-Lean is optional for the scaffold. If `lean` is available on `PATH`, `bip verify` will run it against generated proof files. If not, the manifest records the check as skipped.
+Lean is required to verify. If `lean` is available on `PATH` (or `~/.elan/bin`), `bip verify` runs it against generated proof files. If Lean is missing, the manifest records the check as `failed` and `bip verify` exits non-zero with install instructions — unchecked proofs are never silently accepted.
 
 ## Release
 

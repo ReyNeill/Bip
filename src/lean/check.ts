@@ -7,6 +7,12 @@ import {
   type LeanCheckResult,
 } from "../generated/bip/runtime/ScanScoring.ts";
 
+export const MISSING_LEAN_HINT = [
+  "Lean was not found on PATH or ~/.elan/bin, so generated proof files were not kernel-checked.",
+  "Install it with `brew install elan-init && elan-init -y --default-toolchain stable` (macOS)",
+  "or follow https://leanprover-community.github.io/get_started.html, then re-run.",
+].join(" ");
+
 export async function checkLean(proofFiles: string[]): Promise<LeanCheckResult> {
   if (proofFiles.length === 0) {
     return leanCheckSkipped("No generated Lean proof files to check.");
@@ -15,7 +21,7 @@ export async function checkLean(proofFiles: string[]): Promise<LeanCheckResult> 
   const leanPath = await findCommand("lean");
 
   if (!leanPath) {
-    return leanCheckSkipped("Lean was not found on PATH. Generated proof files were not kernel-checked.");
+    return leanCheckFailed(MISSING_LEAN_HINT);
   }
 
   for (const proofFile of proofFiles) {

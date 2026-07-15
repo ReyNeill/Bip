@@ -136,7 +136,7 @@ bunx bip verify
 
 `bip verify` loads `bip.config.ts`, validates each TSCore module, writes generated runtime TypeScript to each module's `outDir`, writes Lean files under `outDir/proofs`, and writes `outDir/proof-manifest.json`.
 
-Lean is optional while scaffolding. If `lean` is on `PATH`, Bip kernel-checks the generated proof files. If not, the manifest records `leanCheck.status` as `skipped`.
+Lean is required to verify. If `lean` is on `PATH` (or `~/.elan/bin`), Bip kernel-checks the generated proof files. If Lean is missing, the manifest records `leanCheck.status` as `failed` and the command exits non-zero with install instructions.
 
 For one-off local development in the Bip repo, the equivalent direct command is:
 
@@ -179,4 +179,4 @@ Each generated `proof-manifest.json` describes the proof status for one TSCore m
 }
 ```
 
-Treat `checked` as the strongest status. `skipped` means artifacts were generated but Lean was not available. `failed` means the generated proof did not check and should block trust in that module.
+Treat `checked` as the strongest status. `skipped` means there were no proof files to check. `failed` means the generated proof did not check — or Lean was not installed so it could not be checked — and should block trust in that module.
