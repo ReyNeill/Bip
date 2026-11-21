@@ -32,6 +32,12 @@ try {
   const removed = run("verify", "--check");
   expect(removed.exitCode === 1 && removed.output.includes("uses removed contract 'returnsField'"), "check reports removed contracts", removed.output);
 
+  // Constant contracts must still check once data grows (plain `decide` hit Lean's recursion limit
+  // at about 1k characters of strings).
+  writeLargeModule(50);
+  const large = run("verify");
+  expect(large.exitCode === 0, "verify proves contracts on a 50-item constant with long strings", large.output);
+
   console.log("Verify --check tests passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });
@@ -57,6 +63,41 @@ function writeModule(label: string, functions: unknown[]): void {
     stateMachines: [],
   };
   write("bip/site.tscore.ts", `export default ${JSON.stringify(module, null, 2)};\n`);
+}
+
+function writeLargeModule(count: number): void {
+  const string = { kind: "primitive", name: "String" };
+  const items = Array.from({ length: count }, (_, index) => ({
+    kind: "record",
+    typeName: "Project",
+    fields: {
+      slug: { kind: "string", value: `project-${index}` },
+      description: { kind: "string", value: `Project ${index}: ${"a long description of what this project does and why it matters. ".repeat(2)}` },
+    },
+  }));
+  const module = {
+    kind: "TSCoreModule",
+    name: "SiteCore",
+    records: [{ kind: "record", name: "Project", fields: [{ name: "slug", type: string }, { name: "description", type: string }] }],
+    unions: [],
+    constants: [
+      {
+        kind: "constant",
+        name: "projects",
+        type: { kind: "array", item: { kind: "named", name: "Project" } },
+        value: { kind: "array", items },
+        contracts: [
+          { kind: "nonEmptyArray" },
+          { kind: "allItemsFieldNonEmpty", field: "description" },
+          { kind: "allItemsFieldUnique", field: "slug" },
+          { kind: "allItemsFieldStartsWith", field: "slug", prefix: "project-" },
+        ],
+      },
+    ],
+    functions: [],
+    stateMachines: [],
+  };
+  write("bip/site.tscore.ts", `export default ${JSON.stringify(module)};\n`);
 }
 
 function write(relativePath: string, content: string): void {

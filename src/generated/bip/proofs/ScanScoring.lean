@@ -19,15 +19,15 @@ def builtInScanCategories : List ScanCategory :=
 
 theorem builtInScanCategories_nonempty :
     builtInScanCategories != [] := by
-  decide
+  decide +kernel
 
 theorem builtInScanCategories_all_name_nonempty :
     builtInScanCategories.all (fun item => item.name != "") = true := by
-  decide
+  decide +kernel
 
 theorem builtInScanCategories_all_name_unique :
     (builtInScanCategories.map (fun item => item.name)).Nodup := by
-  decide
+  decide +kernel
 
 inductive ScanGateStatus where
   | clean

@@ -29,6 +29,12 @@ type Theorem = ProvedProperty & { lean: string };
 
 const NAMESPACE = "Bip.Generated.TSCore";
 
+// Proof for facts about constant data. `decide +kernel` hands the evaluation of the decision
+// procedure straight to the kernel instead of the elaborator, whose recursion limit long string
+// data exceeds. It adds nothing to the trusted base (unlike `native_decide`, which trusts the
+// compiler). Cost grows with the data; uniqueness compares every pair of items.
+const DECIDE_DATA = "  decide +kernel";
+
 export function emitTSCoreLean(module: TSCoreModule): TSCoreLeanArtifact {
   const context: LeanEmitContext = {
     records: new Map(module.records.map((record) => [record.name, record])),
@@ -85,27 +91,27 @@ function constantTheorems(constant: TSCoreConstant): Theorem[] {
   return (constant.contracts ?? []).map((contract) => {
     switch (contract.kind) {
       case "nonEmptyArray":
-        return theorem(`${name}_nonempty`, `${name} is non-empty`, ` :\n    ${name} != []`, "  decide");
+        return theorem(`${name}_nonempty`, `${name} is non-empty`, ` :\n    ${name} != []`, DECIDE_DATA);
       case "allItemsFieldNonEmpty":
         return theorem(
           `${name}_all_${contract.field}_nonempty`,
           `every ${name} item has a non-empty ${contract.field}`,
           ` :\n    ${name}.all (fun item => item.${contract.field} != "") = true`,
-          "  decide",
+          DECIDE_DATA,
         );
       case "allItemsFieldUnique":
         return theorem(
           `${name}_all_${contract.field}_unique`,
           `${contract.field} is unique across ${name}`,
           ` :\n    (${name}.map (fun item => item.${contract.field})).Nodup`,
-          "  decide",
+          DECIDE_DATA,
         );
       case "allItemsFieldStartsWith":
         return theorem(
           `${name}_all_${contract.field}_starts_with`,
           `every ${name} ${contract.field} starts with ${JSON.stringify(contract.prefix)}`,
           ` :\n    ${name}.all (fun item => ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
-          "  decide",
+          DECIDE_DATA,
         );
       case "allItemsFieldStartsWithOneOf": {
         const prefixes = contract.prefixes.map((prefix) => JSON.stringify(prefix)).join(", ");
@@ -113,7 +119,7 @@ function constantTheorems(constant: TSCoreConstant): Theorem[] {
           `${name}_all_${contract.field}_starts_with_one_of`,
           `every ${name} ${contract.field} starts with one of ${prefixes}`,
           ` :\n    ${name}.all (fun item => [${prefixes}].any (fun p => p.toList.isPrefixOf item.${contract.field}.toList)) = true`,
-          "  decide",
+          DECIDE_DATA,
         );
       }
       case "allItemsFieldEmptyOrStartsWith":
@@ -121,14 +127,14 @@ function constantTheorems(constant: TSCoreConstant): Theorem[] {
           `${name}_all_${contract.field}_empty_or_starts_with`,
           `every ${name} ${contract.field} is empty or starts with ${JSON.stringify(contract.prefix)}`,
           ` :\n    ${name}.all (fun item => item.${contract.field} = "" || ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
-          "  decide",
+          DECIDE_DATA,
         );
       case "allItemsFieldInConstant":
         return theorem(
           `${name}_all_${contract.field}_in_${contract.constant}`,
           `every ${name} ${contract.field} appears as a ${contract.constant} ${contract.constantField}`,
           ` :\n    ${name}.all (fun item => ${contract.constant}.any (fun candidate => candidate.${contract.constantField} == item.${contract.field})) = true`,
-          "  decide",
+          DECIDE_DATA,
         );
       case "fieldEquals":
         return theorem(

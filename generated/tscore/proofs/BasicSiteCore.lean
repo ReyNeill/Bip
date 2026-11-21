@@ -14,15 +14,15 @@ def siteRoutes : List PageRoute :=
 
 theorem siteRoutes_nonempty :
     siteRoutes != [] := by
-  decide
+  decide +kernel
 
 theorem siteRoutes_all_path_unique :
     (siteRoutes.map (fun item => item.path)).Nodup := by
-  decide
+  decide +kernel
 
 theorem siteRoutes_all_path_starts_with :
     siteRoutes.all (fun item => "/".toList.isPrefixOf item.path.toList) = true := by
-  decide
+  decide +kernel
 
 def writingHref (slug : String) : String :=
   ("/writing/" ++ slug)
