@@ -1,4 +1,7 @@
+import type { ProvedProperty, VerifiedExport } from "../manifest.ts";
+import { guardName, reachableFrom, runName } from "./state-machine.ts";
 import type {
+  TSCoreConstant,
   TSCoreExpr,
   TSCoreFunction,
   TSCoreFunctionContract,
@@ -12,7 +15,8 @@ import type {
 export type TSCoreLeanArtifact = {
   relativePath: string;
   content: string;
-  theoremNames: string[];
+  // Exports with at least one theorem, each listing what its theorems prove.
+  exports: VerifiedExport[];
 };
 
 type LeanEmitContext = {
@@ -20,95 +24,244 @@ type LeanEmitContext = {
   unions: Map<string, TSCoreTaggedUnion>;
 };
 
+// A theorem to emit: its name, the property in words, and the Lean declaration.
+type Theorem = ProvedProperty & { lean: string };
+
+const NAMESPACE = "Bip.Generated.TSCore";
+
 export function emitTSCoreLean(module: TSCoreModule): TSCoreLeanArtifact {
-  const theoremNames: string[] = [];
   const context: LeanEmitContext = {
     records: new Map(module.records.map((record) => [record.name, record])),
     unions: new Map(module.unions.map((union) => [union.name, union])),
   };
-  const sections = [
+  const sections: string[] = [];
+  const exports: VerifiedExport[] = [];
+
+  // Adds an export's definitions and theorems, and records the export when it proves anything.
+  const add = (exportName: string, model: VerifiedExport["model"], definitions: string[], theorems: Theorem[]) => {
+    sections.push(...definitions, ...theorems.map((theorem) => theorem.lean));
+    if (theorems.length > 0) {
+      exports.push({ exportName, model, properties: theorems.map(({ statement, theorem }) => ({ statement, theorem })) });
+    }
+  };
+
+  for (const constant of module.constants) {
+    add(constant.name, "TSCoreConstant", [`def ${constant.name} : ${emitType(constant.type)} :=\n  ${emitExpr(constant.value, context)}\n`], constantTheorems(constant));
+  }
+
+  for (const fn of module.functions) {
+    const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
+    add(fn.name, "TSCoreFunction", [`def ${fn.name} ${params} : ${emitType(fn.returns)} :=\n  ${emitExpr(fn.body, context)}\n`], functionTheorems(fn, context));
+  }
+
+  for (const machine of module.stateMachines) {
+    add(machine.name, "TSCoreStateMachine", stateMachineDefinitions(machine), stateMachineTheorems(machine));
+  }
+
+  const content = [
     "import Init",
     "",
-    "namespace Bip.Generated.TSCore",
+    `namespace ${NAMESPACE}`,
     "",
     `/-! Generated from TSCore module '${module.name}'. -/`,
     "",
     ...module.unions.map(emitUnion),
     ...module.records.map(emitRecord),
-    ...module.constants.flatMap((constant) => emitConstant(constant, theoremNames, context)),
-    ...module.functions.flatMap((fn) => emitFunction(fn, theoremNames, context)),
-    ...module.stateMachines.flatMap((machine) => emitStateMachine(machine, theoremNames)),
-    "end Bip.Generated.TSCore",
+    ...sections,
+    `end ${NAMESPACE}`,
     "",
-  ];
+  ].join("\n");
 
-  return {
-    relativePath: `proofs/${sanitize(module.name)}.lean`,
-    content: sections.join("\n"),
-    theoremNames,
-  };
+  return { relativePath: `proofs/${sanitize(module.name)}.lean`, content, exports };
 }
 
-function emitConstant(constant: TSCoreModule["constants"][number], theoremNames: string[], context: LeanEmitContext): string[] {
-  const definition = `def ${constant.name} : ${emitType(constant.type)} :=\n  ${emitExpr(constant.value, context)}\n`;
-  const theorems = (constant.contracts ?? []).map((contract) => {
-    if (contract.kind === "nonEmptyArray") {
-      const theoremName = `${constant.name}_nonempty`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name} != [] := by\n  decide\n`;
-    }
+function theorem(name: string, statement: string, signature: string, proof: string): Theorem {
+  return { statement, theorem: `${NAMESPACE}.${name}`, lean: `theorem ${name}${signature} := by\n${proof}\n` };
+}
 
-    if (contract.kind === "allItemsFieldNonEmpty") {
-      const theoremName = `${constant.name}_all_${contract.field}_nonempty`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name}.all (fun item => item.${contract.field} != "") = true := by\n  decide\n`;
-    }
+function constantTheorems(constant: TSCoreConstant): Theorem[] {
+  const name = constant.name;
 
-    if (contract.kind === "allItemsFieldUnique") {
-      const theoremName = `${constant.name}_all_${contract.field}_unique`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    (${constant.name}.map (fun item => item.${contract.field})).Nodup := by\n  decide\n`;
+  return (constant.contracts ?? []).map((contract) => {
+    switch (contract.kind) {
+      case "nonEmptyArray":
+        return theorem(`${name}_nonempty`, `${name} is non-empty`, ` :\n    ${name} != []`, "  decide");
+      case "allItemsFieldNonEmpty":
+        return theorem(
+          `${name}_all_${contract.field}_nonempty`,
+          `every ${name} item has a non-empty ${contract.field}`,
+          ` :\n    ${name}.all (fun item => item.${contract.field} != "") = true`,
+          "  decide",
+        );
+      case "allItemsFieldUnique":
+        return theorem(
+          `${name}_all_${contract.field}_unique`,
+          `${contract.field} is unique across ${name}`,
+          ` :\n    (${name}.map (fun item => item.${contract.field})).Nodup`,
+          "  decide",
+        );
+      case "allItemsFieldStartsWith":
+        return theorem(
+          `${name}_all_${contract.field}_starts_with`,
+          `every ${name} ${contract.field} starts with ${JSON.stringify(contract.prefix)}`,
+          ` :\n    ${name}.all (fun item => ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
+          "  decide",
+        );
+      case "allItemsFieldStartsWithOneOf": {
+        const prefixes = contract.prefixes.map((prefix) => JSON.stringify(prefix)).join(", ");
+        return theorem(
+          `${name}_all_${contract.field}_starts_with_one_of`,
+          `every ${name} ${contract.field} starts with one of ${prefixes}`,
+          ` :\n    ${name}.all (fun item => [${prefixes}].any (fun p => p.toList.isPrefixOf item.${contract.field}.toList)) = true`,
+          "  decide",
+        );
+      }
+      case "allItemsFieldEmptyOrStartsWith":
+        return theorem(
+          `${name}_all_${contract.field}_empty_or_starts_with`,
+          `every ${name} ${contract.field} is empty or starts with ${JSON.stringify(contract.prefix)}`,
+          ` :\n    ${name}.all (fun item => item.${contract.field} = "" || ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
+          "  decide",
+        );
+      case "allItemsFieldInConstant":
+        return theorem(
+          `${name}_all_${contract.field}_in_${contract.constant}`,
+          `every ${name} ${contract.field} appears as a ${contract.constant} ${contract.constantField}`,
+          ` :\n    ${name}.all (fun item => ${contract.constant}.any (fun candidate => candidate.${contract.constantField} == item.${contract.field})) = true`,
+          "  decide",
+        );
+      case "fieldEquals":
+        return theorem(
+          `${name}_${contract.field}_eq`,
+          `${name}.${contract.field} is ${JSON.stringify(contract.value)}`,
+          ` :\n    ${name}.${contract.field} = ${JSON.stringify(contract.value)}`,
+          "  rfl",
+        );
     }
-
-    if (contract.kind === "allItemsFieldStartsWith") {
-      const theoremName = `${constant.name}_all_${contract.field}_starts_with`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name}.all (fun item => ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true := by\n  decide\n`;
-    }
-
-    if (contract.kind === "allItemsFieldStartsWithOneOf") {
-      const theoremName = `${constant.name}_all_${contract.field}_starts_with_one_of`;
-      const prefixes = `[${contract.prefixes.map((prefix) => JSON.stringify(prefix)).join(", ")}]`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name}.all (fun item => ${prefixes}.any (fun p => p.toList.isPrefixOf item.${contract.field}.toList)) = true := by\n  decide\n`;
-    }
-
-    if (contract.kind === "allItemsFieldEmptyOrStartsWith") {
-      const theoremName = `${constant.name}_all_${contract.field}_empty_or_starts_with`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name}.all (fun item => item.${contract.field} = "" || ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true := by\n  decide\n`;
-    }
-
-    if (contract.kind === "allItemsFieldInConstant") {
-      const theoremName = `${constant.name}_all_${contract.field}_in_${contract.constant}`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${constant.name}.all (fun item => ${contract.constant}.any (fun candidate => candidate.${contract.constantField} == item.${contract.field})) = true := by\n  decide\n`;
-    }
-
-    const theoremName = `${constant.name}_${contract.field}_eq`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} :\n    ${constant.name}.${contract.field} = ${JSON.stringify(contract.value)} := by\n  rfl\n`;
   });
-
-  return [definition, ...theorems];
 }
 
-function emitRecord(record: TSCoreModule["records"][number]): string {
+function functionTheorems(fn: TSCoreFunction, context: LeanEmitContext): Theorem[] {
+  const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
+  const call = `${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")}`;
+  const signature = params ? ` ${params}` : "";
+
+  return (fn.contracts ?? []).flatMap((contract) => {
+    switch (contract.kind) {
+      case "returnsStartsWith":
+        return [
+          theorem(
+            `${fn.name}_returns_prefix`,
+            `${fn.name} returns a string starting with ${JSON.stringify(contract.prefix)} for every input`,
+            `${signature} :\n    ${JSON.stringify(contract.prefix)}.toList.isPrefixOf (${call}).toList = true`,
+            `  unfold ${fn.name}\n  simp`,
+          ),
+        ];
+      case "returnsEndsWith":
+        return [
+          theorem(
+            `${fn.name}_returns_suffix`,
+            `${fn.name} returns a string ending with ${JSON.stringify(contract.suffix)} for every input`,
+            `${signature} :\n    ∃ p : String, ${call} = p ++ ${JSON.stringify(contract.suffix)}`,
+            `  unfold ${fn.name}\n  exact ⟨${emitSuffixPrefixWitness(fn.body, contract.suffix, context)}, rfl⟩`,
+          ),
+        ];
+      case "nonEmptyFieldsPredicate":
+        return nonEmptyFieldsPredicateTheorems(fn, contract, context);
+    }
+  });
+}
+
+function stateMachineDefinitions(machine: TSCoreStateMachine): string[] {
+  const { name, stateName: S, actionName: A } = machine;
+  const clauses = machine.transitions.map((transition) => `  | .${transition.from}, .${transition.action} => .${transition.to}`);
+
+  return [
+    `inductive ${S} where\n${machine.states.map((state) => `  | ${state}`).join("\n")}\nderiving Repr, DecidableEq\n`,
+    `inductive ${A} where\n${machine.actions.map((action) => `  | ${action}`).join("\n")}\nderiving Repr, DecidableEq\n`,
+    `def ${name} : ${S} -> ${A} -> ${S}\n${clauses.join("\n")}\n  | state, _ => state\n`,
+    `def ${guardName(machine)} : ${S} -> ${A} -> Bool\n${clauses.map((clause) => clause.replace(/=> .+$/, "=> true")).join("\n")}\n  | _, _ => false\n`,
+    `def ${runName(machine)} : ${S} -> List ${A} -> ${S}\n  | state, [] => state\n  | state, action :: rest => ${runName(machine)} (${name} state action) rest\n`,
+  ];
+}
+
+// Whole-machine properties. The transition table itself is the definition, so restating its rows
+// as theorems would add nothing; these statements quantify over states, actions, or action lists.
+function stateMachineTheorems(machine: TSCoreStateMachine): Theorem[] {
+  const { name, stateName: S, actionName: A } = machine;
+  const guard = guardName(machine);
+  const run = runName(machine);
+  const guardAgreement = theorem(
+    `${name}_blocked_keeps_state`,
+    `actions that ${guard} blocks leave the ${name} state unchanged`,
+    ` (state : ${S}) (action : ${A}) :\n    ${guard} state action = false -> ${name} state action = state`,
+    "  cases state <;> cases action <;> decide",
+  );
+  const terminal = (machine.terminalStates ?? []).map((state) =>
+    theorem(
+      `${name}_${state}_terminal`,
+      `${state} is terminal: every action keeps it`,
+      ` (action : ${A}) :\n    ${name} .${state} action = .${state}`,
+      "  cases action <;> rfl",
+    ),
+  );
+  const initial = machine.initialState;
+  const paths = initial ? reachableFrom(machine, initial) : new Map<string, string[]>();
+  const reachable = initial
+    ? machine.states
+        .filter((state) => state !== initial)
+        .map((state) => {
+          const witness = (paths.get(state) ?? []).map((action) => `.${action}`).join(", ");
+          return theorem(
+            `${name}_${state}_reachable`,
+            `${state} is reachable from ${initial}`,
+            ` :\n    ∃ actions : List ${A}, ${run} .${initial} actions = .${state}`,
+            `  exact ⟨[${witness}], by decide⟩`,
+          );
+        })
+    : [];
+  const never = (machine.never ?? []).map(({ from, to }) => neverTheorem(machine, from, to));
+
+  return [guardAgreement, ...terminal, ...reachable, ...never];
+}
+
+// Proves that `to` is unreachable from `from`: the states reachable from `from` are closed under
+// every action and exclude `to`, so induction over the action list keeps the run inside them.
+function neverTheorem(machine: TSCoreStateMachine, from: string, to: string): Theorem {
+  const { name, stateName: S, actionName: A } = machine;
+  const run = runName(machine);
+  const closure = [...reachableFrom(machine, from).keys()];
+  const inside = `(fun state : ${S} => match state with\n${closure.map((state) => `      | .${state} => true`).join("\n")}\n      | _ => false)`;
+  const proof = [
+    `  let inside : ${S} -> Bool := ${inside}`,
+    `  have closed : ∀ (state : ${S}) (action : ${A}), inside state = true -> inside (${name} state action) = true := by`,
+    "    intro state action",
+    "    cases state <;> cases action <;> decide",
+    `  have stays : ∀ (rest : List ${A}) (state : ${S}), inside state = true -> inside (${run} state rest) = true := by`,
+    "    intro rest",
+    "    induction rest with",
+    "    | nil => intro state h; exact h",
+    `    | cons action rest ih => intro state h; exact ih (${name} state action) (closed state action h)`,
+    "  intro reached",
+    `  have h := stays actions .${from} (by decide)`,
+    "  rw [reached] at h",
+    "  exact absurd h (by decide)",
+  ].join("\n");
+
+  return theorem(
+    `${name}_${from}_never_reaches_${to}`,
+    `no sequence of actions takes ${name} from ${from} to ${to}`,
+    ` (actions : List ${A}) :\n    ${run} .${from} actions ≠ .${to}`,
+    proof,
+  );
+}
+
+function emitRecord(record: TSCoreRecord): string {
   const fields = record.fields.map((field) => `  ${field.name} : ${emitType(field.type)}`).join("\n");
   return `structure ${record.name} where\n${fields}\nderiving Repr, BEq\n`;
 }
 
-function emitUnion(union: TSCoreModule["unions"][number]): string {
+function emitUnion(union: TSCoreTaggedUnion): string {
   const variants = union.variants.map((variant) => {
     const fields = variant.fields?.map((field) => emitType(field.type)).join(" -> ");
     return fields ? `  | ${variant.name} : ${fields} -> ${union.name}` : `  | ${variant.name}`;
@@ -116,104 +269,32 @@ function emitUnion(union: TSCoreModule["unions"][number]): string {
   return `inductive ${union.name} where\n${variants.join("\n")}\nderiving Repr, BEq\n`;
 }
 
-function emitFunction(fn: TSCoreFunction, theoremNames: string[], context: LeanEmitContext): string[] {
-  const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
-  const definition = `def ${fn.name} ${params} : ${emitType(fn.returns)} :=\n  ${emitExpr(fn.body, context)}\n`;
-  const theorems = (fn.contracts ?? []).map((contract) => {
-    if (contract.kind === "idempotent") {
-      const theoremName = `${fn.name}_idempotent`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} ${params} :\n    ${fn.name} (${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")}) = ${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")} := by\n  rfl\n`;
-    }
+function nonEmptyFieldsPredicateTheorems(
+  fn: TSCoreFunction,
+  contract: Extract<TSCoreFunctionContract, { kind: "nonEmptyFieldsPredicate" }>,
+  context: LeanEmitContext,
+): Theorem[] {
+  const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
+  const record = parameter?.type.kind === "named" ? context.records.get(parameter.type.name) : undefined;
+  if (!record) {
+    return [];
+  }
 
-    if (contract.kind === "returnsVariant") {
-      const theoremName = `${fn.name}_returns_${contract.variant}`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} ${params} :\n    ${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")} = ${emitExpr(fn.body, context)} := by\n  rfl\n`;
-    }
+  return contract.fields.map((emptyField) => {
+    const params = record.fields
+      .filter((field) => field.name !== emptyField)
+      .map((field) => ` (${field.name} : ${emitType(field.type)})`)
+      .join("");
+    const fields = record.fields
+      .map((field) => `${field.name} := ${field.name === emptyField ? JSON.stringify("") : field.name}`)
+      .join(", ");
 
-    if (contract.kind === "recordConstructor") {
-      return emitRecordConstructorTheorems(fn, theoremNames, context).join("\n");
-    }
-
-    if (contract.kind === "returnsStartsWith") {
-      const theoremName = `${fn.name}_returns_prefix`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} ${params} :\n    ${JSON.stringify(contract.prefix)}.toList.isPrefixOf (${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")}).toList = true := by\n  unfold ${fn.name}\n  simp\n`;
-    }
-
-    if (contract.kind === "returnsEndsWith") {
-      const theoremName = `${fn.name}_returns_suffix`;
-      const prefix = emitSuffixPrefixWitness(fn.body, contract.suffix, context);
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} ${params} :\n    ∃ p : String, ${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")} = p ++ ${JSON.stringify(contract.suffix)} := by\n  unfold ${fn.name}\n  exact ⟨${prefix}, rfl⟩\n`;
-    }
-
-    if (contract.kind === "variantPredicate") {
-      return emitVariantPredicateTheorems(fn, contract, theoremNames, context).join("\n");
-    }
-
-    if (contract.kind === "nonEmptyFieldsPredicate") {
-      return emitNonEmptyFieldsPredicateTheorems(fn, contract, theoremNames, context).join("\n");
-    }
-
-    const theoremName = `${fn.name}_returns_${contract.parameter}_${contract.field}`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} ${params} :\n    ${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")} = ${contract.parameter}.${contract.field} := by\n  rfl\n`;
-  });
-
-  return [definition, ...theorems];
-}
-
-function emitStateMachine(machine: TSCoreStateMachine, theoremNames: string[]): string[] {
-  const states = `inductive ${machine.stateName} where\n${machine.states.map((state) => `  | ${state}`).join("\n")}\nderiving Repr, BEq\n`;
-  const actions = `inductive ${machine.actionName} where\n${machine.actions.map((action) => `  | ${action}`).join("\n")}\nderiving Repr, BEq\n`;
-  const clauses = machine.transitions.map((transition) => {
-    return `  | .${transition.from}, .${transition.action} => .${transition.to}`;
-  });
-  const reducer = `def ${machine.name} : ${machine.stateName} -> ${machine.actionName} -> ${machine.stateName}\n${clauses.join("\n")}\n  | state, _ => state\n`;
-  const guard = `def ${stateMachineGuardName(machine)} : ${machine.stateName} -> ${machine.actionName} -> Bool\n${clauses.map((clause) => clause.replace(/=> .+$/, "=> true")).join("\n")}\n  | _, _ => false\n`;
-  const transitionTheorems = machine.transitions.map((transition) => {
-    const theoremName = `${machine.name}_${transition.from}_${transition.action}_to_${transition.to}`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} :\n    ${machine.name} .${transition.from} .${transition.action} = .${transition.to} := by\n  rfl\n`;
-  });
-  const selfTransitionTheorems = implicitSelfTransitions(machine).map((transition) => {
-    const theoremName = `${machine.name}_${transition.state}_${transition.action}_stays_${transition.state}`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} :\n    ${machine.name} .${transition.state} .${transition.action} = .${transition.state} := by\n  rfl\n`;
-  });
-  const terminalTheorems = (machine.terminalStates ?? []).map((state) => {
-    const theoremName = `${machine.name}_${state}_terminal`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} (action : ${machine.actionName}) :\n    ${machine.name} .${state} action = .${state} := by\n  cases action <;> rfl\n`;
-  });
-  const guardTheorems = [
-    ...machine.transitions.map((transition) => {
-      const theoremName = `${stateMachineGuardName(machine)}_${transition.from}_${transition.action}_is_allowed`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${stateMachineGuardName(machine)} .${transition.from} .${transition.action} = true := by\n  rfl\n`;
-    }),
-    ...implicitSelfTransitions(machine).map((transition) => {
-      const theoremName = `${stateMachineGuardName(machine)}_${transition.state}_${transition.action}_is_blocked`;
-      theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-      return `theorem ${theoremName} :\n    ${stateMachineGuardName(machine)} .${transition.state} .${transition.action} = false := by\n  rfl\n`;
-    }),
-  ];
-
-  return [states, actions, reducer, guard, ...transitionTheorems, ...selfTransitionTheorems, ...terminalTheorems, ...guardTheorems];
-}
-
-function stateMachineGuardName(machine: TSCoreStateMachine): string {
-  return `can${machine.name.slice(0, 1).toUpperCase()}${machine.name.slice(1)}`;
-}
-
-function implicitSelfTransitions(machine: TSCoreStateMachine): Array<{ state: string; action: string }> {
-  const explicit = new Set(machine.transitions.map((transition) => `${transition.from}:${transition.action}`));
-  return machine.states.flatMap((state) => {
-    return machine.actions.flatMap((action) => {
-      return explicit.has(`${state}:${action}`) ? [] : [{ state, action }];
-    });
+    return theorem(
+      `${fn.name}_${emptyField}_empty_is_false`,
+      `${fn.name} returns false whenever ${contract.parameter}.${emptyField} is empty`,
+      `${params} :\n    ${fn.name} { ${fields} } = false`,
+      `  unfold ${fn.name}\n  simp`,
+    );
   });
 }
 
@@ -289,85 +370,6 @@ function emitExpr(expr: TSCoreExpr, context: LeanEmitContext): string {
 
   const fields = Object.entries(expr.fields).map(([field, value]) => `${field} := ${emitExpr(value, context)}`).join(", ");
   return `{ ${fields} }`;
-}
-
-function emitVariantPredicateTheorems(
-  fn: TSCoreFunction,
-  contract: Extract<TSCoreFunctionContract, { kind: "variantPredicate" }>,
-  theoremNames: string[],
-  context: LeanEmitContext,
-): string[] {
-  const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
-  const union = parameter?.type.kind === "named" ? context.unions.get(parameter.type.name) : undefined;
-  if (!union) {
-    return [];
-  }
-
-  return union.variants.map((variant) => {
-    const theoremName = `${fn.name}_${variant.name}_${variant.name === contract.variant ? "is" : "is_not"}_${contract.variant}`;
-    const params = variant.fields?.map((field) => `(${field.name} : ${emitType(field.type)})`).join(" ") ?? "";
-    const args = variant.fields?.map((field) => field.name).join(" ") ?? "";
-    const appliedVariant = args ? `(${union.name}.${variant.name} ${args})` : `${union.name}.${variant.name}`;
-    const result = variant.name === contract.variant ? "true" : "false";
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} ${params} :\n    ${fn.name} ${appliedVariant} = ${result} := by\n  rfl\n`;
-  });
-}
-
-function emitRecordConstructorTheorems(
-  fn: TSCoreFunction,
-  theoremNames: string[],
-  context: LeanEmitContext,
-): string[] {
-  const record = fn.returns.kind === "named" ? context.records.get(fn.returns.name) : undefined;
-  if (!record) {
-    return [];
-  }
-
-  const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
-  const args = fn.parameters.map((parameter) => parameter.name).join(" ");
-  const theorems = record.fields.map((field) => {
-    const theoremName = `${fn.name}_${field.name}_eq`;
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} ${params} :\n    (${fn.name} ${args}).${field.name} = ${field.name} := by\n  rfl\n`;
-  });
-
-  const theoremName = `${fn.name}_returns_record`;
-  theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-  return [
-    `theorem ${theoremName} ${params} :\n    ${fn.name} ${args} = ${emitExpr(fn.body, context)} := by\n  rfl\n`,
-    ...theorems,
-  ];
-}
-
-function emitNonEmptyFieldsPredicateTheorems(
-  fn: TSCoreFunction,
-  contract: Extract<TSCoreFunctionContract, { kind: "nonEmptyFieldsPredicate" }>,
-  theoremNames: string[],
-  context: LeanEmitContext,
-): string[] {
-  const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
-  const record = parameter?.type.kind === "named" ? context.records.get(parameter.type.name) : undefined;
-  if (!record) {
-    return [];
-  }
-
-  return contract.fields.map((emptyField) => {
-    const theoremName = `${fn.name}_${emptyField}_empty_is_false`;
-    const params = record.fields
-      .filter((field) => field.name !== emptyField)
-      .map((field) => `(${field.name} : ${emitType(field.type)})`)
-      .join(" ");
-    const fields = record.fields
-      .map((field) => {
-        const value = field.name === emptyField ? JSON.stringify("") : field.name;
-        return `${field.name} := ${value}`;
-      })
-      .join(", ");
-
-    theoremNames.push(`Bip.Generated.TSCore.${theoremName}`);
-    return `theorem ${theoremName} ${params} :\n    ${fn.name} { ${fields} } = false := by\n  unfold ${fn.name}\n  simp\n`;
-  });
 }
 
 function emitVariantPattern(unionName: string, variant: TSCoreTaggedUnion["variants"][number]): string {

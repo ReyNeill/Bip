@@ -9,7 +9,7 @@ type FixtureFile = {
 };
 
 await withFixture(
-  "reports uncovered discovery findings",
+  "reports discovery candidates without scoring them",
   [
     packageFile(),
     {
@@ -36,7 +36,8 @@ await withFixture(
   async (root) => {
     const output = await captureScan(root);
 
-    assertIncludes(output, "Discovered Boundaries 5 issues");
+    assertIncludes(output, "Discovered Boundaries 5 suggestions");
+    assertIncludes(output, "Bip Verification Score: unavailable");
     assertIncludes(output, "Rule: bip/api-contracts");
     assertIncludes(output, "Rule: bip/auth-and-permissions");
     assertIncludes(output, "Rule: bip/content-catalogs");
@@ -69,9 +70,9 @@ await withFixture(
   async (root) => {
     const output = await captureScan(root);
 
-    assertIncludes(output, "Discovered Boundaries 1 issue");
-    assertIncludes(output, "Navigation and links not fully proof-backed ×3");
-    assertIncludes(output, "3/3 discovered files lack a visible Bip boundary.");
+    assertIncludes(output, "Discovered Boundaries 1 suggestion");
+    assertIncludes(output, "Navigation and links candidates ×3");
+    assertIncludes(output, "3 files without generated Bip code.");
     assertIncludes(output, "src/routes.ts:1");
     assertIncludes(output, "src/app/page.tsx:4");
     assertIncludes(output, "src/app/actions.ts:4");
@@ -135,6 +136,32 @@ await withFixture(
   },
 );
 
+await withFixture(
+  "reports generated artifacts that differ from a fresh generation",
+  [
+    packageFile(),
+    {
+      path: "bip.config.ts",
+      content: `export default { modules: [{ name: "site", source: "bip/site.tscore.ts", outDir: "src/generated/bip/site" }] };\n`,
+    },
+    {
+      path: "bip/site.tscore.ts",
+      content: `export default { kind: "TSCoreModule", name: "SiteCore", records: [], unions: [], constants: [], functions: [], stateMachines: [] };\n`,
+    },
+    {
+      path: "src/generated/bip/site/proof-manifest.json",
+      content: JSON.stringify({ checker: "lean4", source: "bip/site.tscore.ts", leanCheck: { status: "checked", detail: "" }, verifiedExports: [] }),
+    },
+  ],
+  async (root) => {
+    const output = await captureScan(root);
+
+    assertIncludes(output, "Rule: bip/stale-generated-artifacts");
+    assertIncludes(output, "src/generated/bip/site/runtime/SiteCore.ts");
+    assertIncludes(output, "src/generated/bip/site/proof-manifest.json");
+  },
+);
+
 console.log("Scan fixture tests passed.");
 
 async function withFixture(name: string, files: FixtureFile[], run: (root: string) => Promise<void>): Promise<void> {
@@ -171,7 +198,7 @@ async function captureScan(root: string): Promise<string> {
     return lines.join("\n");
   } finally {
     console.log = originalLog;
-    process.exitCode = originalExitCode;
+    process.exitCode = originalExitCode ?? 0;
   }
 }
 

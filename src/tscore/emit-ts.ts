@@ -1,3 +1,4 @@
+import { guardName } from "./state-machine.ts";
 import type { TSCoreExpr, TSCoreModule, TSCoreType } from "./types.ts";
 
 export function emitTSCoreTypeScript(module: TSCoreModule): string {
@@ -50,26 +51,22 @@ function emitStateMachine(machine: TSCoreModule["stateMachines"][number]): strin
   const guardCases = machine.transitions.map((transition) => {
     return `    case "${transition.from}:${transition.action}":\n      return true;`;
   });
-  const guard = `export function ${stateMachineGuardName(machine)}(state: ${machine.stateName}, action: ${machine.actionName}): boolean {\n  switch (\`\${state}:\${action}\`) {\n${guardCases.join("\n")}\n    default:\n      return false;\n  }\n}\n`;
+  const guard = `export function ${guardName(machine)}(state: ${machine.stateName}, action: ${machine.actionName}): boolean {\n  switch (\`\${state}:\${action}\`) {\n${guardCases.join("\n")}\n    default:\n      return false;\n  }\n}\n`;
 
   return [stateType, actionType, reducer, guard];
 }
 
-function stateMachineGuardName(machine: TSCoreModule["stateMachines"][number]): string {
-  return `can${machine.name.slice(0, 1).toUpperCase()}${machine.name.slice(1)}`;
-}
-
+// A function whose body tests a parameter for a union variant becomes a TypeScript type guard.
 function emitFunctionReturnType(
   fn: TSCoreModule["functions"][number],
   context: { unions: Map<string, TSCoreModule["unions"][number]> },
 ): string {
-  const variantPredicate = fn.contracts?.find((contract) => contract.kind === "variantPredicate");
-  const parameter = variantPredicate ? fn.parameters.find((candidate) => candidate.name === variantPredicate.parameter) : undefined;
-  const unionName = parameter?.type.kind === "named" ? parameter.type.name : undefined;
-  const union = unionName ? context.unions.get(unionName) : undefined;
+  const { body } = fn;
+  const parameter = body.kind === "isVariant" && body.target.kind === "var" ? body.target.name : undefined;
+  const union = body.kind === "isVariant" ? context.unions.get(body.unionName) : undefined;
 
-  if (variantPredicate && parameter && union) {
-    return `${parameter.name} is Extract<${union.name}, { ${union.tag}: ${JSON.stringify(variantPredicate.variant)} }>`;
+  if (body.kind === "isVariant" && parameter && union && fn.parameters.some((candidate) => candidate.name === parameter)) {
+    return `${parameter} is Extract<${union.name}, { ${union.tag}: ${JSON.stringify(body.variant)} }>`;
   }
 
   return emitType(fn.returns);

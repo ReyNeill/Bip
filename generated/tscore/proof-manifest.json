@@ -1,7 +1,8 @@
 {
   "checker": "lean4",
-  "generatedAt": "2026-05-19T22:18:54.935Z",
+  "toolchain": "leanprover/lean4:v4.32.0",
   "source": "examples/basic-site.tscore.ts",
+  "proofFile": "proofs/BasicSiteCore.lean",
   "leanCheck": {
     "status": "checked",
     "detail": "Lean checked 1 proof file(s)."
@@ -10,92 +11,56 @@
     {
       "exportName": "siteRoutes",
       "model": "TSCoreConstant",
-      "proofFile": "proofs/BasicSiteCore.lean",
-      "requires": [],
-      "ensures": [
-        "nonEmptyArray",
-        "allItemsFieldUnique",
-        "allItemsFieldStartsWith"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.siteRoutes_nonempty",
-        "Bip.Generated.TSCore.siteRoutes_all_path_unique",
-        "Bip.Generated.TSCore.siteRoutes_all_path_starts_with"
-      ],
-      "status": "checked"
+      "properties": [
+        {
+          "statement": "siteRoutes is non-empty",
+          "theorem": "Bip.Generated.TSCore.siteRoutes_nonempty"
+        },
+        {
+          "statement": "path is unique across siteRoutes",
+          "theorem": "Bip.Generated.TSCore.siteRoutes_all_path_unique"
+        },
+        {
+          "statement": "every siteRoutes path starts with \"/\"",
+          "theorem": "Bip.Generated.TSCore.siteRoutes_all_path_starts_with"
+        }
+      ]
     },
     {
-      "exportName": "routePath",
+      "exportName": "writingHref",
       "model": "TSCoreFunction",
-      "proofFile": "proofs/BasicSiteCore.lean",
-      "requires": [],
-      "ensures": [
-        "returnsField"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.routePath_returns_route_path"
-      ],
-      "status": "checked"
+      "properties": [
+        {
+          "statement": "writingHref returns a string starting with \"/writing/\" for every input",
+          "theorem": "Bip.Generated.TSCore.writingHref_returns_prefix"
+        }
+      ]
     },
     {
       "exportName": "publishTransition",
       "model": "TSCoreStateMachine",
-      "proofFile": "proofs/BasicSiteCore.lean",
-      "requires": [],
-      "ensures": [
-        "draft + publish -> published",
-        "published + archive -> archived",
-        "draft + archive -> draft",
-        "draft + edit -> draft",
-        "published + publish -> published",
-        "published + edit -> published",
-        "archived + publish -> archived",
-        "archived + archive -> archived",
-        "archived + edit -> archived",
-        "archived is terminal"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.publishTransition_draft_publish_to_published",
-        "Bip.Generated.TSCore.publishTransition_published_archive_to_archived",
-        "Bip.Generated.TSCore.publishTransition_draft_archive_stays_draft",
-        "Bip.Generated.TSCore.publishTransition_draft_edit_stays_draft",
-        "Bip.Generated.TSCore.publishTransition_published_publish_stays_published",
-        "Bip.Generated.TSCore.publishTransition_published_edit_stays_published",
-        "Bip.Generated.TSCore.publishTransition_archived_publish_stays_archived",
-        "Bip.Generated.TSCore.publishTransition_archived_archive_stays_archived",
-        "Bip.Generated.TSCore.publishTransition_archived_edit_stays_archived",
-        "Bip.Generated.TSCore.publishTransition_archived_terminal"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "canPublishTransition",
-      "model": "TSCoreStateMachineGuard",
-      "proofFile": "proofs/BasicSiteCore.lean",
-      "requires": [],
-      "ensures": [
-        "draft + publish is allowed",
-        "published + archive is allowed",
-        "draft + archive is blocked",
-        "draft + edit is blocked",
-        "published + publish is blocked",
-        "published + edit is blocked",
-        "archived + publish is blocked",
-        "archived + archive is blocked",
-        "archived + edit is blocked"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.canPublishTransition_draft_publish_is_allowed",
-        "Bip.Generated.TSCore.canPublishTransition_published_archive_is_allowed",
-        "Bip.Generated.TSCore.canPublishTransition_draft_archive_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_draft_edit_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_published_publish_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_published_edit_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_archived_publish_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_archived_archive_is_blocked",
-        "Bip.Generated.TSCore.canPublishTransition_archived_edit_is_blocked"
-      ],
-      "status": "checked"
+      "properties": [
+        {
+          "statement": "actions that canPublishTransition blocks leave the publishTransition state unchanged",
+          "theorem": "Bip.Generated.TSCore.publishTransition_blocked_keeps_state"
+        },
+        {
+          "statement": "archived is terminal: every action keeps it",
+          "theorem": "Bip.Generated.TSCore.publishTransition_archived_terminal"
+        },
+        {
+          "statement": "published is reachable from draft",
+          "theorem": "Bip.Generated.TSCore.publishTransition_published_reachable"
+        },
+        {
+          "statement": "archived is reachable from draft",
+          "theorem": "Bip.Generated.TSCore.publishTransition_archived_reachable"
+        },
+        {
+          "statement": "no sequence of actions takes publishTransition from published to draft",
+          "theorem": "Bip.Generated.TSCore.publishTransition_published_never_reaches_draft"
+        }
+      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { defineBipConfig } from "bip";
+import { defineBipConfig } from "./src/index.ts";
 
 export default defineBipConfig({
   modules: [

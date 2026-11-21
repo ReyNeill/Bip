@@ -1,3 +1,4 @@
+import { record, recordList, recordValue, stateMachine } from "../src/tscore/build.ts";
 import { defineModule } from "../src/tscore/define.ts";
 import type { TSCoreExpr, TSCoreModule } from "../src/tscore/types.ts";
 import { validateModule } from "../src/tscore/validate.ts";
@@ -73,7 +74,6 @@ const validModule = defineModule({
       parameters: [{ name: "route", type: { kind: "named", name: "Route" } }],
       returns: StringType,
       body: { kind: "field", target: { kind: "var", name: "route" }, field: "path" },
-      contracts: [{ kind: "returnsField", parameter: "route", field: "path" }],
     },
     {
       kind: "function",
@@ -89,7 +89,6 @@ const validModule = defineModule({
           path: { kind: "field", target: { kind: "var", name: "route" }, field: "path" },
         },
       },
-      contracts: [{ kind: "returnsVariant", variant: "success" }],
     },
     {
       kind: "function",
@@ -103,7 +102,6 @@ const validModule = defineModule({
         tag: "status",
         variant: "success",
       },
-      contracts: [{ kind: "variantPredicate", parameter: "result", variant: "success" }],
     },
     {
       kind: "function",
@@ -130,7 +128,9 @@ const validModule = defineModule({
       states: ["draft", "archived"],
       actions: ["archive", "edit"],
       transitions: [{ from: "draft", action: "archive", to: "archived" }],
+      initialState: "draft",
       terminalStates: ["archived"],
+      never: [{ from: "archived", to: "draft" }],
     },
   ],
 });
@@ -255,23 +255,6 @@ assertError(
   "allItemsFieldStartsWithOneOf contract is false",
 );
 assertError(
-  "bad returnsField body",
-  {
-    ...validModule,
-    functions: [
-      {
-        kind: "function",
-        name: "badRoutePath",
-        parameters: [{ name: "route", type: { kind: "named", name: "Route" } }],
-        returns: StringType,
-        body: { kind: "field", target: { kind: "var", name: "route" }, field: "label" },
-        contracts: [{ kind: "returnsField", parameter: "route", field: "path" }],
-      },
-    ],
-  },
-  "must return 'route.path' directly",
-);
-assertError(
   "bad returnsStartsWith body",
   {
     ...validModule,
@@ -293,29 +276,6 @@ assertError(
     ],
   },
   "returnsStartsWith contract requires a body starting with '/'",
-);
-assertError(
-  "bad variant predicate body",
-  {
-    ...validModule,
-    functions: [
-      {
-        kind: "function",
-        name: "badRoutePredicate",
-        parameters: [{ name: "result", type: { kind: "named", name: "RouteResult" } }],
-        returns: { kind: "primitive", name: "Bool" },
-        body: {
-          kind: "isVariant",
-          target: { kind: "var", name: "result" },
-          unionName: "RouteResult",
-          tag: "status",
-          variant: "error",
-        },
-        contracts: [{ kind: "variantPredicate", parameter: "result", variant: "success" }],
-      },
-    ],
-  },
-  "variantPredicate contract must test 'result' for 'RouteResult.success'",
 );
 assertError(
   "bad returnsEndsWith body",
@@ -340,23 +300,14 @@ assertError(
   },
   "returnsEndsWith contract requires a body ending with '/'",
 );
-assertError(
-  "bad idempotent contract",
-  {
-    ...validModule,
-    functions: [
-      {
-        kind: "function",
-        name: "notIdentity",
-        parameters: [{ name: "route", type: { kind: "named", name: "Route" } }],
-        returns: { kind: "named", name: "Route" },
-        body: routeValue({ path: "/", label: "Home" }),
-        contracts: [{ kind: "idempotent" }],
-      },
-    ],
-  },
-  "idempotent contract currently requires an identity body",
-);
+// Untyped modules (for example ones built by a project adapter) can still carry contracts that
+// were removed because their theorem only restated the function body.
+for (const kind of ["returnsField", "recordConstructor", "returnsVariant", "idempotent", "variantPredicate"]) {
+  const [routePath] = validModule.functions;
+  const legacy: unknown = { ...validModule, functions: [{ ...routePath, contracts: [{ kind }] }] };
+  assertError(`removed ${kind} contract`, legacy as TSCoreModule, `uses removed contract '${kind}'`);
+}
+
 assertError(
   "bad generated identifier",
   {
@@ -396,6 +347,55 @@ assertError(
   },
   "duplicate transition for 'draft' and 'archive'",
 );
+
+const [machine] = validModule.stateMachines;
+if (!machine) {
+  throw new Error("valid module needs a state machine");
+}
+assertError(
+  "unreachable state",
+  { ...validModule, stateMachines: [{ ...machine, states: [...machine.states, "orphan"] }] },
+  "State 'orphan' in 'transition' is unreachable from initial state 'draft'",
+);
+assertError(
+  "false never property",
+  { ...validModule, stateMachines: [{ ...machine, never: [{ from: "draft", to: "archived" }] }] },
+  "never property 'draft' -> 'archived' is false: actions [archive] reach 'archived'",
+);
+
+// Typed builders: `bun run typecheck` enforces the @ts-expect-error lines, and the built module
+// must validate like hand-written IR.
+const Link = record("Link", { href: "String", label: "String", order: "Nat" });
+const builtModule = defineModule({
+  name: "BuilderSmoke",
+  records: [Link],
+  unions: [],
+  constants: [
+    recordList("links", Link, [{ href: "/", label: "Home", order: 1 }], {
+      nonEmpty: true,
+      unique: ["href"],
+      startsWith: { href: ["/", "https://"] },
+      // @ts-expect-error order is not a String field
+      emptyOrStartsWith: { order: "/" },
+    }),
+    // @ts-expect-error label must be a string
+    recordValue("badLink", Link, { href: "/", label: 1, order: 1 }),
+  ],
+  functions: [],
+  stateMachines: [
+    stateMachine({
+      name: "linkState",
+      stateName: "LinkState",
+      actionName: "LinkAction",
+      states: ["live", "hidden"],
+      actions: ["hide"],
+      initialState: "live",
+      // @ts-expect-error "gone" is not a declared state
+      transitions: [{ from: "live", action: "hide", to: "gone" }],
+    }),
+  ],
+});
+assertError("typed builder data", builtModule, "allItemsFieldEmptyOrStartsWith contract currently supports String fields only");
 
 console.log("TSCore validation smoke tests passed.");
 

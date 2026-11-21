@@ -1,8 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+// Usage: bun run scripts/release.ts <patch|minor> [publish flags]
+// Checks, bumps the version, commits, packs, and publishes. Breaking changes in 0.x take a minor bump.
 const root = path.resolve(import.meta.dir, "..");
-const publishArgs = Bun.argv.slice(2);
+const [bump, ...publishArgs] = Bun.argv.slice(2);
+
+if (bump !== "patch" && bump !== "minor") {
+  throw new Error("Usage: bun run scripts/release.ts <patch|minor> [publish flags]");
+}
 
 assertCleanWorktree();
 
@@ -10,8 +16,11 @@ run(["bun", "run", "typecheck"]);
 run(["bun", "run", "test:init"]);
 run(["bun", "run", "test:scan"]);
 run(["bun", "run", "test:tscore"]);
+run(["bun", "run", "test:check"]);
+run(["bun", "run", "test:emitters"]);
+run(["bun", "run", "check:self"]);
 
-const nextVersion = bumpPatchVersion();
+const nextVersion = bumpVersion(bump);
 console.log(`Bumped package version to ${nextVersion}.`);
 
 run(["bun", "run", "pack:dry-run"]);
@@ -40,7 +49,7 @@ function assertCleanWorktree(): void {
   }
 }
 
-function bumpPatchVersion(): string {
+function bumpVersion(kind: "patch" | "minor"): string {
   const packagePath = path.join(root, "package.json");
   const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { version?: string };
 
@@ -55,7 +64,7 @@ function bumpPatchVersion(): string {
   }
 
   const [major, minor, patch] = parts as [number, number, number];
-  const nextVersion = `${major}.${minor}.${patch + 1}`;
+  const nextVersion = kind === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
   packageJson.version = nextVersion;
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 

@@ -29,63 +29,17 @@ theorem builtInScanCategories_all_name_unique :
     (builtInScanCategories.map (fun item => item.name)).Nodup := by
   decide
 
-def scanCategoryName (category : ScanCategory) : String :=
-  category.name
-
-theorem scanCategoryName_returns_category_name (category : ScanCategory) :
-    scanCategoryName category = category.name := by
-  rfl
-
-def leanCheckChecked (detail : String) : LeanCheckResult :=
-  (LeanCheckResult.checked detail)
-
-theorem leanCheckChecked_returns_checked (detail : String) :
-    leanCheckChecked detail = (LeanCheckResult.checked detail) := by
-  rfl
-
-def leanCheckSkipped (detail : String) : LeanCheckResult :=
-  (LeanCheckResult.skipped detail)
-
-theorem leanCheckSkipped_returns_skipped (detail : String) :
-    leanCheckSkipped detail = (LeanCheckResult.skipped detail) := by
-  rfl
-
-def leanCheckFailed (detail : String) : LeanCheckResult :=
-  (LeanCheckResult.failed detail)
-
-theorem leanCheckFailed_returns_failed (detail : String) :
-    leanCheckFailed detail = (LeanCheckResult.failed detail) := by
-  rfl
-
-def isLeanCheckChecked (result : LeanCheckResult) : Bool :=
-  (match result with
-  | LeanCheckResult.checked _ => true
-  | LeanCheckResult.skipped _ => false
-  | LeanCheckResult.failed _ => false)
-
-theorem isLeanCheckChecked_checked_is_checked (detail : String) :
-    isLeanCheckChecked (LeanCheckResult.checked detail) = true := by
-  rfl
-
-theorem isLeanCheckChecked_skipped_is_not_checked (detail : String) :
-    isLeanCheckChecked (LeanCheckResult.skipped detail) = false := by
-  rfl
-
-theorem isLeanCheckChecked_failed_is_not_checked (detail : String) :
-    isLeanCheckChecked (LeanCheckResult.failed detail) = false := by
-  rfl
-
 inductive ScanGateStatus where
   | clean
   | warn
   | error
-deriving Repr, BEq
+deriving Repr, DecidableEq
 
 inductive ScanFindingSignal where
   | observeInfo
   | observeWarn
   | observeError
-deriving Repr, BEq
+deriving Repr, DecidableEq
 
 def scanGateStatusTransition : ScanGateStatus -> ScanFindingSignal -> ScanGateStatus
   | .clean, .observeWarn => .warn
@@ -99,80 +53,43 @@ def canScanGateStatusTransition : ScanGateStatus -> ScanFindingSignal -> Bool
   | .warn, .observeError => true
   | _, _ => false
 
-theorem scanGateStatusTransition_clean_observeWarn_to_warn :
-    scanGateStatusTransition .clean .observeWarn = .warn := by
-  rfl
+def scanGateStatusTransitionRun : ScanGateStatus -> List ScanFindingSignal -> ScanGateStatus
+  | state, [] => state
+  | state, action :: rest => scanGateStatusTransitionRun (scanGateStatusTransition state action) rest
 
-theorem scanGateStatusTransition_clean_observeError_to_error :
-    scanGateStatusTransition .clean .observeError = .error := by
-  rfl
-
-theorem scanGateStatusTransition_warn_observeError_to_error :
-    scanGateStatusTransition .warn .observeError = .error := by
-  rfl
-
-theorem scanGateStatusTransition_clean_observeInfo_stays_clean :
-    scanGateStatusTransition .clean .observeInfo = .clean := by
-  rfl
-
-theorem scanGateStatusTransition_warn_observeInfo_stays_warn :
-    scanGateStatusTransition .warn .observeInfo = .warn := by
-  rfl
-
-theorem scanGateStatusTransition_warn_observeWarn_stays_warn :
-    scanGateStatusTransition .warn .observeWarn = .warn := by
-  rfl
-
-theorem scanGateStatusTransition_error_observeInfo_stays_error :
-    scanGateStatusTransition .error .observeInfo = .error := by
-  rfl
-
-theorem scanGateStatusTransition_error_observeWarn_stays_error :
-    scanGateStatusTransition .error .observeWarn = .error := by
-  rfl
-
-theorem scanGateStatusTransition_error_observeError_stays_error :
-    scanGateStatusTransition .error .observeError = .error := by
-  rfl
+theorem scanGateStatusTransition_blocked_keeps_state (state : ScanGateStatus) (action : ScanFindingSignal) :
+    canScanGateStatusTransition state action = false -> scanGateStatusTransition state action = state := by
+  cases state <;> cases action <;> decide
 
 theorem scanGateStatusTransition_error_terminal (action : ScanFindingSignal) :
     scanGateStatusTransition .error action = .error := by
   cases action <;> rfl
 
-theorem canScanGateStatusTransition_clean_observeWarn_is_allowed :
-    canScanGateStatusTransition .clean .observeWarn = true := by
-  rfl
+theorem scanGateStatusTransition_warn_reachable :
+    ∃ actions : List ScanFindingSignal, scanGateStatusTransitionRun .clean actions = .warn := by
+  exact ⟨[.observeWarn], by decide⟩
 
-theorem canScanGateStatusTransition_clean_observeError_is_allowed :
-    canScanGateStatusTransition .clean .observeError = true := by
-  rfl
+theorem scanGateStatusTransition_error_reachable :
+    ∃ actions : List ScanFindingSignal, scanGateStatusTransitionRun .clean actions = .error := by
+  exact ⟨[.observeError], by decide⟩
 
-theorem canScanGateStatusTransition_warn_observeError_is_allowed :
-    canScanGateStatusTransition .warn .observeError = true := by
-  rfl
-
-theorem canScanGateStatusTransition_clean_observeInfo_is_blocked :
-    canScanGateStatusTransition .clean .observeInfo = false := by
-  rfl
-
-theorem canScanGateStatusTransition_warn_observeInfo_is_blocked :
-    canScanGateStatusTransition .warn .observeInfo = false := by
-  rfl
-
-theorem canScanGateStatusTransition_warn_observeWarn_is_blocked :
-    canScanGateStatusTransition .warn .observeWarn = false := by
-  rfl
-
-theorem canScanGateStatusTransition_error_observeInfo_is_blocked :
-    canScanGateStatusTransition .error .observeInfo = false := by
-  rfl
-
-theorem canScanGateStatusTransition_error_observeWarn_is_blocked :
-    canScanGateStatusTransition .error .observeWarn = false := by
-  rfl
-
-theorem canScanGateStatusTransition_error_observeError_is_blocked :
-    canScanGateStatusTransition .error .observeError = false := by
-  rfl
+theorem scanGateStatusTransition_warn_never_reaches_clean (actions : List ScanFindingSignal) :
+    scanGateStatusTransitionRun .warn actions ≠ .clean := by
+  let inside : ScanGateStatus -> Bool := (fun state : ScanGateStatus => match state with
+      | .warn => true
+      | .error => true
+      | _ => false)
+  have closed : ∀ (state : ScanGateStatus) (action : ScanFindingSignal), inside state = true -> inside (scanGateStatusTransition state action) = true := by
+    intro state action
+    cases state <;> cases action <;> decide
+  have stays : ∀ (rest : List ScanFindingSignal) (state : ScanGateStatus), inside state = true -> inside (scanGateStatusTransitionRun state rest) = true := by
+    intro rest
+    induction rest with
+    | nil => intro state h; exact h
+    | cons action rest ih => intro state h; exact ih (scanGateStatusTransition state action) (closed state action h)
+  intro reached
+  have h := stays actions .warn (by decide)
+  rw [reached] at h
+  exact absurd h (by decide)
 
 end Bip.Generated.TSCore

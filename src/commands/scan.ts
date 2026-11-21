@@ -1,13 +1,13 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { ProofManifest } from "../contracts/types.ts";
+import type { ProofManifest } from "../manifest.ts";
 import { loadBipConfig } from "../config/load.ts";
-import type { BipModuleConfig, BipScanCheck } from "../config/types.ts";
+import type { BipScanCheck } from "../config/types.ts";
+import { checkProjectModules, type ModuleFreshness } from "./verify-project.ts";
 import { discoverBoundaries } from "../scan/discover-boundaries.ts";
 import type { Finding, FindingSeverity, ScoreItem } from "../scan/types.ts";
 import {
   builtInScanCategories,
-  scanCategoryName,
   scanGateStatusTransition,
   type ScanFindingSignal,
   type ScanGateStatus,
@@ -20,8 +20,8 @@ if (!projectChecksCategory || !discoveredBoundariesCategory) {
   throw new Error("Generated Bip scan categories are missing.");
 }
 
-const PROJECT_CHECKS_CATEGORY = scanCategoryName(projectChecksCategory);
-const DISCOVERED_BOUNDARIES_CATEGORY = scanCategoryName(discoveredBoundariesCategory);
+const PROJECT_CHECKS_CATEGORY = projectChecksCategory.name;
+const DISCOVERED_BOUNDARIES_CATEGORY = discoveredBoundariesCategory.name;
 
 export async function scanProject(rootPath: string): Promise<void> {
   const startedAt = Date.now();
@@ -44,15 +44,15 @@ export async function scanProject(rootPath: string): Promise<void> {
   console.log(`- Found ${config.modules.length} Bip module${config.modules.length === 1 ? "" : "s"}.`);
   console.log("");
 
-  for (const moduleConfig of config.modules) {
-    inspectModule(root, moduleConfig, findings, scores);
+  for (const freshness of loaded ? await checkProjectModules(loaded) : []) {
+    inspectModule(root, freshness, findings, scores);
   }
 
   for (const check of config.checks ?? []) {
     runConfiguredCheck(root, check, findings, scores);
   }
 
-  discoverBoundaries(root, sourceFiles, findings, scores);
+  discoverBoundaries(root, sourceFiles, findings, DISCOVERED_BOUNDARIES_CATEGORY);
 
   printFindings(findings);
   printScore(scores, findings, Date.now() - startedAt);
@@ -74,7 +74,7 @@ async function loadOptionalBipConfig(root: string): Promise<Awaited<ReturnType<t
   }
 }
 
-function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Finding[], scores: ScoreItem[]): void {
+function inspectModule(root: string, { moduleConfig, staleFiles, error }: ModuleFreshness, findings: Finding[], scores: ScoreItem[]): void {
   const category = moduleConfig.category ?? "Proof Modules";
   const weight = moduleConfig.weight ?? 10;
   const sourcePath = path.resolve(root, moduleConfig.source);
@@ -113,7 +113,7 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
   }
 
   const manifest = readManifest(manifestPath);
-  const proofPath = manifest.verifiedExports[0]?.proofFile ? path.join(outDir, manifest.verifiedExports[0].proofFile) : null;
+  const proofPath = manifest.proofFile ? path.join(outDir, manifest.proofFile) : null;
 
   if (manifest.leanCheck.status !== "checked") {
     findings.push({
@@ -139,20 +139,6 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
     });
   }
 
-  const uncheckedExport = manifest.verifiedExports.find((item) => item.status !== "checked");
-
-  if (uncheckedExport) {
-    findings.push({
-      category,
-      ruleId: "bip/unchecked-export",
-      severity: "error",
-      title: "Unchecked export",
-      detail: `Export '${uncheckedExport.exportName}' is '${uncheckedExport.status}', not checked.`,
-      recommendation: "Regenerate the module and resolve the failing Lean proof or missing model.",
-      location: relative(root, manifestPath),
-    });
-  }
-
   if (proofPath && !existsSync(proofPath)) {
     findings.push({
       category,
@@ -165,20 +151,32 @@ function inspectModule(root: string, moduleConfig: BipModuleConfig, findings: Fi
     });
   }
 
-  if (statSync(sourcePath).mtimeMs > statSync(manifestPath).mtimeMs) {
+  if (error) {
     findings.push({
       category,
-      ruleId: "bip/stale-proof-manifest",
-      severity: "warn",
-      title: "TSCore source newer than manifest",
-      detail: `Module '${moduleConfig.name}' changed after its proof manifest was generated.`,
-      recommendation: "Run `bunx bip verify` to refresh generated artifacts.",
+      ruleId: "bip/invalid-tscore-module",
+      severity: "error",
+      title: "TSCore module could not be regenerated",
+      detail: error,
+      recommendation: "Fix the TSCore module, then run `bunx bip verify`.",
       location: relativeSource,
+    });
+  } else if (staleFiles.length > 0) {
+    findings.push({
+      category,
+      ruleId: "bip/stale-generated-artifacts",
+      severity: "error",
+      title: "Generated artifacts are stale",
+      detail: `Module '${moduleConfig.name}' has generated files that differ from a fresh generation of its TSCore source.`,
+      recommendation: "Run `bunx bip verify` and commit the result. `bunx bip verify --check` reports the same thing in CI.",
+      location: staleFiles.map((file) => relative(root, file)).join(", "),
+      affectedCount: staleFiles.length,
     });
   }
 
   const status = scoreGateStatus(findings.slice(findingStart));
   score.earned = status === "error" ? 0 : status === "warn" ? Math.round(weight * 0.5) : weight;
+  score.properties = status === "error" ? 0 : manifest.verifiedExports.reduce((sum, item) => sum + item.properties.length, 0);
   scores.push(score);
 }
 
@@ -194,7 +192,7 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
       severity: "warn",
       title: "Empty check command",
       detail: `Configured check '${check.name}' has no command.`,
-      recommendation: "Add a command array such as [\"bun\", \"scripts/check-bip-generated.ts\"].",
+      recommendation: "Add a command array such as [\"bun\", \"run\", \"typecheck\"].",
     });
     scores.push({ category, name: check.name, weight, earned: 0 });
     return;
@@ -239,7 +237,8 @@ function printFindings(findings: Finding[]): void {
   }
 
   for (const [category, items] of [...grouped.entries()].toSorted(compareCategoryGroups)) {
-    console.log(`${category} ${items.length} issue${items.length === 1 ? "" : "s"}`);
+    const noun = items.every((item) => item.severity === "info") ? "suggestion" : "issue";
+    console.log(`${category} ${items.length} ${noun}${items.length === 1 ? "" : "s"}`);
 
     for (const item of items) {
       const marker = item.severity === "error" ? "✖" : item.severity === "warn" ? "⚠" : "ℹ";
@@ -346,13 +345,14 @@ function totalAffectedCount(findings: Finding[]): number {
   return findings.reduce((sum, finding) => sum + affectedCount(finding), 0);
 }
 
+// The score covers what Bip can know for certain: proof modules (Lean status, staleness,
+// manifest health) and configured checks. Discovered boundaries are advisory and never scored.
 function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number): void {
   const total = scores.reduce((sum, item) => sum + item.weight, 0);
   const earned = scores.reduce((sum, item) => sum + item.earned, 0);
-  const checkedModules = scores.filter(
-    (item) => item.category !== PROJECT_CHECKS_CATEGORY && item.category !== DISCOVERED_BOUNDARIES_CATEGORY && item.earned === item.weight,
-  ).length;
-  const issueCount = findings.length;
+  const checkedModules = scores.filter((item) => item.properties !== undefined && item.earned === item.weight);
+  const properties = checkedModules.reduce((sum, item) => sum + (item.properties ?? 0), 0);
+  const issueCount = findings.filter((finding) => finding.severity !== "info").length;
 
   if (total === 0) {
     console.log("  Bip Verification Score: unavailable");
@@ -362,7 +362,9 @@ function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number)
 
   console.log("");
   console.log(`  ${issueCount} issue${issueCount === 1 ? "" : "s"} across ${scores.length} verification gate${scores.length === 1 ? "" : "s"} in ${elapsedMs}ms`);
-  console.log(`  ${checkedModules} proof module${checkedModules === 1 ? "" : "s"} currently checked`);
+  console.log(
+    `  ${properties} propert${properties === 1 ? "y" : "ies"} proved across ${checkedModules.length} checked proof module${checkedModules.length === 1 ? "" : "s"}`,
+  );
 }
 
 function readManifest(manifestPath: string): ProofManifest {

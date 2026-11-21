@@ -22,15 +22,18 @@
     "pack:dry-run": "bun pm pack --dry-run",
     "publish:dry-run": "bun publish --dry-run --access public",
     "publish:public": "bun publish --access public",
-    "release:patch": "bun run scripts/release-patch.ts",
-    "verify:self": "bun node_modules/bip/src/cli.ts verify",
-    "verify:example": "bun run src/cli.ts verify examples/counter.ts --out generated",
+    "release:patch": "bun run scripts/release.ts patch",
+    "release:minor": "bun run scripts/release.ts minor",
+    "verify:self": "bun run src/cli.ts verify",
+    "check:self": "bun run src/cli.ts verify --check",
     "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
     "scan:self": "bun run src/cli.ts scan .",
     "scan:published": "bun node_modules/bip/src/cli.ts scan .",
     "test:init": "bun run scripts/check-init-fixtures.ts",
     "test:scan": "bun run scripts/check-scan-fixtures.ts",
-    "test:tscore": "bun run scripts/check-tscore-validation.ts"
+    "test:tscore": "bun run scripts/check-tscore-validation.ts",
+    "test:check": "bun run scripts/check-verify-check.ts",
+    "test:emitters": "bun run scripts/check-emitters.ts"
   },
   "dependencies": {
     "typescript": "^5.9.3"

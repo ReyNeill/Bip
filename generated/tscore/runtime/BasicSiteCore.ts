@@ -8,8 +8,8 @@ export type PageRoute = {
 
 export const siteRoutes: ReadonlyArray<PageRoute> = [{ path: "/", label: "Home" }];
 
-export function routePath(route: PageRoute): string {
-  return route.path;
+export function writingHref(slug: string): string {
+  return "/writing/" + slug;
 }
 
 export type PublishState = "draft" | "published" | "archived";

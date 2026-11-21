@@ -24,24 +24,25 @@ theorem siteRoutes_all_path_starts_with :
     siteRoutes.all (fun item => "/".toList.isPrefixOf item.path.toList) = true := by
   decide
 
-def routePath (route : PageRoute) : String :=
-  route.path
+def writingHref (slug : String) : String :=
+  ("/writing/" ++ slug)
 
-theorem routePath_returns_route_path (route : PageRoute) :
-    routePath route = route.path := by
-  rfl
+theorem writingHref_returns_prefix (slug : String) :
+    "/writing/".toList.isPrefixOf (writingHref slug).toList = true := by
+  unfold writingHref
+  simp
 
 inductive PublishState where
   | draft
   | published
   | archived
-deriving Repr, BEq
+deriving Repr, DecidableEq
 
 inductive PublishAction where
   | publish
   | archive
   | edit
-deriving Repr, BEq
+deriving Repr, DecidableEq
 
 def publishTransition : PublishState -> PublishAction -> PublishState
   | .draft, .publish => .published
@@ -53,80 +54,43 @@ def canPublishTransition : PublishState -> PublishAction -> Bool
   | .published, .archive => true
   | _, _ => false
 
-theorem publishTransition_draft_publish_to_published :
-    publishTransition .draft .publish = .published := by
-  rfl
+def publishTransitionRun : PublishState -> List PublishAction -> PublishState
+  | state, [] => state
+  | state, action :: rest => publishTransitionRun (publishTransition state action) rest
 
-theorem publishTransition_published_archive_to_archived :
-    publishTransition .published .archive = .archived := by
-  rfl
-
-theorem publishTransition_draft_archive_stays_draft :
-    publishTransition .draft .archive = .draft := by
-  rfl
-
-theorem publishTransition_draft_edit_stays_draft :
-    publishTransition .draft .edit = .draft := by
-  rfl
-
-theorem publishTransition_published_publish_stays_published :
-    publishTransition .published .publish = .published := by
-  rfl
-
-theorem publishTransition_published_edit_stays_published :
-    publishTransition .published .edit = .published := by
-  rfl
-
-theorem publishTransition_archived_publish_stays_archived :
-    publishTransition .archived .publish = .archived := by
-  rfl
-
-theorem publishTransition_archived_archive_stays_archived :
-    publishTransition .archived .archive = .archived := by
-  rfl
-
-theorem publishTransition_archived_edit_stays_archived :
-    publishTransition .archived .edit = .archived := by
-  rfl
+theorem publishTransition_blocked_keeps_state (state : PublishState) (action : PublishAction) :
+    canPublishTransition state action = false -> publishTransition state action = state := by
+  cases state <;> cases action <;> decide
 
 theorem publishTransition_archived_terminal (action : PublishAction) :
     publishTransition .archived action = .archived := by
   cases action <;> rfl
 
-theorem canPublishTransition_draft_publish_is_allowed :
-    canPublishTransition .draft .publish = true := by
-  rfl
+theorem publishTransition_published_reachable :
+    ∃ actions : List PublishAction, publishTransitionRun .draft actions = .published := by
+  exact ⟨[.publish], by decide⟩
 
-theorem canPublishTransition_published_archive_is_allowed :
-    canPublishTransition .published .archive = true := by
-  rfl
+theorem publishTransition_archived_reachable :
+    ∃ actions : List PublishAction, publishTransitionRun .draft actions = .archived := by
+  exact ⟨[.publish, .archive], by decide⟩
 
-theorem canPublishTransition_draft_archive_is_blocked :
-    canPublishTransition .draft .archive = false := by
-  rfl
-
-theorem canPublishTransition_draft_edit_is_blocked :
-    canPublishTransition .draft .edit = false := by
-  rfl
-
-theorem canPublishTransition_published_publish_is_blocked :
-    canPublishTransition .published .publish = false := by
-  rfl
-
-theorem canPublishTransition_published_edit_is_blocked :
-    canPublishTransition .published .edit = false := by
-  rfl
-
-theorem canPublishTransition_archived_publish_is_blocked :
-    canPublishTransition .archived .publish = false := by
-  rfl
-
-theorem canPublishTransition_archived_archive_is_blocked :
-    canPublishTransition .archived .archive = false := by
-  rfl
-
-theorem canPublishTransition_archived_edit_is_blocked :
-    canPublishTransition .archived .edit = false := by
-  rfl
+theorem publishTransition_published_never_reaches_draft (actions : List PublishAction) :
+    publishTransitionRun .published actions ≠ .draft := by
+  let inside : PublishState -> Bool := (fun state : PublishState => match state with
+      | .published => true
+      | .archived => true
+      | _ => false)
+  have closed : ∀ (state : PublishState) (action : PublishAction), inside state = true -> inside (publishTransition state action) = true := by
+    intro state action
+    cases state <;> cases action <;> decide
+  have stays : ∀ (rest : List PublishAction) (state : PublishState), inside state = true -> inside (publishTransitionRun state rest) = true := by
+    intro rest
+    induction rest with
+    | nil => intro state h; exact h
+    | cons action rest ih => intro state h; exact ih (publishTransition state action) (closed state action h)
+  intro reached
+  have h := stays actions .published (by decide)
+  rw [reached] at h
+  exact absurd h (by decide)
 
 end Bip.Generated.TSCore

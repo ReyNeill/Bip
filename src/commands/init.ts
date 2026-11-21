@@ -3,7 +3,7 @@ import path from "node:path";
 import { writeTextFile } from "../utils/fs.ts";
 
 const AGENTS_NOTE = `## Bip
-Use \`bunx bip verify\` to check proofs and \`bunx bip scan\` to read the score. Do not raise Bip coverage unless asked.
+Use \`bunx bip verify\` to regenerate and check proofs, \`bunx bip verify --check\` to confirm generated files are current, and \`bunx bip scan\` to read the score. Do not raise Bip coverage unless asked.
 `;
 
 export async function initProject(rootPath = process.cwd()): Promise<void> {
@@ -30,47 +30,20 @@ export default defineBipConfig({
 });
 `);
 
-  await writeIfMissing(root, modulePath, `import { defineModule } from "bip";
+  await writeIfMissing(root, modulePath, `import { defineModule, record, recordList } from "bip";
 
-const StringType = { kind: "primitive", name: "String" } as const;
+const PageRoute = record("PageRoute", { path: "String", label: "String" });
 
 export default defineModule({
   name: "ExampleCore",
-  records: [
-    {
-      kind: "record",
-      name: "PageRoute",
-      fields: [
-        { name: "path", type: StringType },
-        { name: "label", type: StringType },
-      ],
-    },
-  ],
+  records: [PageRoute],
   unions: [],
   constants: [
-    {
-      kind: "constant",
-      name: "siteRoutes",
-      type: { kind: "array", item: { kind: "named", name: "PageRoute" } },
-      value: {
-        kind: "array",
-        items: [
-          {
-            kind: "record",
-            typeName: "PageRoute",
-            fields: {
-              path: { kind: "string", value: "/" },
-              label: { kind: "string", value: "Home" },
-            },
-          },
-        ],
-      },
-      contracts: [
-        { kind: "nonEmptyArray" },
-        { kind: "allItemsFieldUnique", field: "path" },
-        { kind: "allItemsFieldStartsWith", field: "path", prefix: "/" },
-      ],
-    },
+    recordList("siteRoutes", PageRoute, [{ path: "/", label: "Home" }], {
+      nonEmpty: true,
+      unique: ["path"],
+      startsWith: { path: "/" },
+    }),
   ],
   functions: [],
   stateMachines: [],

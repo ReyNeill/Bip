@@ -16,4 +16,6 @@ export type ScoreItem = {
   name: string;
   weight: number;
   earned: number;
+  // Proved properties, set only for proof modules.
+  properties?: number;
 };

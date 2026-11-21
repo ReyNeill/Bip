@@ -12,26 +12,6 @@ export type LeanCheckResult =
 
 export const builtInScanCategories: ReadonlyArray<ScanCategory> = [{ name: "Project Checks" }, { name: "Discovered Boundaries" }];
 
-export function scanCategoryName(category: ScanCategory): string {
-  return category.name;
-}
-
-export function leanCheckChecked(detail: string): LeanCheckResult {
-  return { status: "checked", detail: detail };
-}
-
-export function leanCheckSkipped(detail: string): LeanCheckResult {
-  return { status: "skipped", detail: detail };
-}
-
-export function leanCheckFailed(detail: string): LeanCheckResult {
-  return { status: "failed", detail: detail };
-}
-
-export function isLeanCheckChecked(result: LeanCheckResult): result is Extract<LeanCheckResult, { status: "checked" }> {
-  return result.status === "checked";
-}
-
 export type ScanGateStatus = "clean" | "warn" | "error";
 
 export type ScanFindingSignal = "observeInfo" | "observeWarn" | "observeError";

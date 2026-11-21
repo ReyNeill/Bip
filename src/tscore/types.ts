@@ -72,14 +72,13 @@ export type TSCoreExpr =
   | { kind: "field"; target: TSCoreExpr; field: string }
   | { kind: "record"; typeName: string; fields: Record<string, TSCoreExpr> };
 
+// Every contract proves something beyond the function body. Contracts whose theorem only restated
+// the body (`returnsField`, `recordConstructor`, `returnsVariant`, `idempotent`, `variantPredicate`)
+// were removed: read record fields directly, and a function whose body is `isVariant` on a
+// parameter becomes a TypeScript type guard without any contract.
 export type TSCoreFunctionContract =
-  | { kind: "idempotent" }
-  | { kind: "returnsField"; parameter: string; field: string }
-  | { kind: "recordConstructor" }
-  | { kind: "returnsVariant"; variant: string }
   | { kind: "returnsStartsWith"; prefix: string }
   | { kind: "returnsEndsWith"; suffix: string }
-  | { kind: "variantPredicate"; parameter: string; variant: string }
   | { kind: "nonEmptyFieldsPredicate"; parameter: string; fields: string[] };
 
 export type TSCoreConstantContract =
@@ -92,6 +91,10 @@ export type TSCoreConstantContract =
   | { kind: "allItemsFieldEmptyOrStartsWith"; field: string; prefix: string }
   | { kind: "allItemsFieldInConstant"; field: string; constant: string; constantField: string };
 
+// Undeclared (state, action) pairs leave the state unchanged. Bip proves, for every machine, that
+// actions its guard blocks keep the state, and that terminal states absorb every action. With
+// `initialState` it proves every state reachable; each `never` entry proves that no action sequence
+// takes `from` to `to`.
 export type TSCoreStateMachine = {
   kind: "stateMachine";
   name: string;
@@ -100,7 +103,9 @@ export type TSCoreStateMachine = {
   states: string[];
   actions: string[];
   transitions: TSCoreTransition[];
+  initialState?: string;
   terminalStates?: string[];
+  never?: Array<{ from: string; to: string }>;
 };
 
 export type TSCoreTransition = {

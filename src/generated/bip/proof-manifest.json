@@ -1,7 +1,8 @@
 {
   "checker": "lean4",
-  "generatedAt": "2026-05-21T22:02:12.821Z",
+  "toolchain": "leanprover/lean4:v4.32.0",
   "source": "bip/scan-scoring.tscore.ts",
+  "proofFile": "proofs/ScanScoring.lean",
   "leanCheck": {
     "status": "checked",
     "detail": "Lean checked 1 proof file(s)."
@@ -10,146 +11,46 @@
     {
       "exportName": "builtInScanCategories",
       "model": "TSCoreConstant",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "nonEmptyArray",
-        "allItemsFieldNonEmpty",
-        "allItemsFieldUnique"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.builtInScanCategories_nonempty",
-        "Bip.Generated.TSCore.builtInScanCategories_all_name_nonempty",
-        "Bip.Generated.TSCore.builtInScanCategories_all_name_unique"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "scanCategoryName",
-      "model": "TSCoreFunction",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "returnsField"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.scanCategoryName_returns_category_name"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "leanCheckChecked",
-      "model": "TSCoreFunction",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "returnsVariant"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.leanCheckChecked_returns_checked"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "leanCheckSkipped",
-      "model": "TSCoreFunction",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "returnsVariant"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.leanCheckSkipped_returns_skipped"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "leanCheckFailed",
-      "model": "TSCoreFunction",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "returnsVariant"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.leanCheckFailed_returns_failed"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "isLeanCheckChecked",
-      "model": "TSCoreFunction",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "variantPredicate"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.isLeanCheckChecked_checked_is_checked",
-        "Bip.Generated.TSCore.isLeanCheckChecked_skipped_is_not_checked",
-        "Bip.Generated.TSCore.isLeanCheckChecked_failed_is_not_checked"
-      ],
-      "status": "checked"
+      "properties": [
+        {
+          "statement": "builtInScanCategories is non-empty",
+          "theorem": "Bip.Generated.TSCore.builtInScanCategories_nonempty"
+        },
+        {
+          "statement": "every builtInScanCategories item has a non-empty name",
+          "theorem": "Bip.Generated.TSCore.builtInScanCategories_all_name_nonempty"
+        },
+        {
+          "statement": "name is unique across builtInScanCategories",
+          "theorem": "Bip.Generated.TSCore.builtInScanCategories_all_name_unique"
+        }
+      ]
     },
     {
       "exportName": "scanGateStatusTransition",
       "model": "TSCoreStateMachine",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "clean + observeWarn -> warn",
-        "clean + observeError -> error",
-        "warn + observeError -> error",
-        "clean + observeInfo -> clean",
-        "warn + observeInfo -> warn",
-        "warn + observeWarn -> warn",
-        "error + observeInfo -> error",
-        "error + observeWarn -> error",
-        "error + observeError -> error",
-        "error is terminal"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.scanGateStatusTransition_clean_observeWarn_to_warn",
-        "Bip.Generated.TSCore.scanGateStatusTransition_clean_observeError_to_error",
-        "Bip.Generated.TSCore.scanGateStatusTransition_warn_observeError_to_error",
-        "Bip.Generated.TSCore.scanGateStatusTransition_clean_observeInfo_stays_clean",
-        "Bip.Generated.TSCore.scanGateStatusTransition_warn_observeInfo_stays_warn",
-        "Bip.Generated.TSCore.scanGateStatusTransition_warn_observeWarn_stays_warn",
-        "Bip.Generated.TSCore.scanGateStatusTransition_error_observeInfo_stays_error",
-        "Bip.Generated.TSCore.scanGateStatusTransition_error_observeWarn_stays_error",
-        "Bip.Generated.TSCore.scanGateStatusTransition_error_observeError_stays_error",
-        "Bip.Generated.TSCore.scanGateStatusTransition_error_terminal"
-      ],
-      "status": "checked"
-    },
-    {
-      "exportName": "canScanGateStatusTransition",
-      "model": "TSCoreStateMachineGuard",
-      "proofFile": "proofs/ScanScoring.lean",
-      "requires": [],
-      "ensures": [
-        "clean + observeWarn is allowed",
-        "clean + observeError is allowed",
-        "warn + observeError is allowed",
-        "clean + observeInfo is blocked",
-        "warn + observeInfo is blocked",
-        "warn + observeWarn is blocked",
-        "error + observeInfo is blocked",
-        "error + observeWarn is blocked",
-        "error + observeError is blocked"
-      ],
-      "theoremNames": [
-        "Bip.Generated.TSCore.canScanGateStatusTransition_clean_observeWarn_is_allowed",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_clean_observeError_is_allowed",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_warn_observeError_is_allowed",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_clean_observeInfo_is_blocked",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_warn_observeInfo_is_blocked",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_warn_observeWarn_is_blocked",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_error_observeInfo_is_blocked",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_error_observeWarn_is_blocked",
-        "Bip.Generated.TSCore.canScanGateStatusTransition_error_observeError_is_blocked"
-      ],
-      "status": "checked"
+      "properties": [
+        {
+          "statement": "actions that canScanGateStatusTransition blocks leave the scanGateStatusTransition state unchanged",
+          "theorem": "Bip.Generated.TSCore.scanGateStatusTransition_blocked_keeps_state"
+        },
+        {
+          "statement": "error is terminal: every action keeps it",
+          "theorem": "Bip.Generated.TSCore.scanGateStatusTransition_error_terminal"
+        },
+        {
+          "statement": "warn is reachable from clean",
+          "theorem": "Bip.Generated.TSCore.scanGateStatusTransition_warn_reachable"
+        },
+        {
+          "statement": "error is reachable from clean",
+          "theorem": "Bip.Generated.TSCore.scanGateStatusTransition_error_reachable"
+        },
+        {
+          "statement": "no sequence of actions takes scanGateStatusTransition from warn to clean",
+          "theorem": "Bip.Generated.TSCore.scanGateStatusTransition_warn_never_reaches_clean"
+        }
+      ]
     }
   ]
 }

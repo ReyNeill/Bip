@@ -1,5 +1,8 @@
+import { constantContractHolds, evaluate, type TSCoreValue } from "./evaluate.ts";
+import { guardName, reachableFrom, runName } from "./state-machine.ts";
 import type {
   TSCoreConstant,
+  TSCoreConstantContract,
   TSCoreExpr,
   TSCoreFunction,
   TSCoreModule,
@@ -46,11 +49,13 @@ export function validateModule(module: TSCoreModule): string[] {
     }
   }
 
+  const values = evaluateConstants(module);
+
   for (const constant of module.constants) {
     const constantContext = { ...context, variables: new Map<string, TSCoreType>() };
     validateTypes([constant.type], context, `constant ${constant.name}`, errors);
     validateExprAgainst(constant.value, constant.type, constantContext, `constant ${constant.name}`, errors);
-    validateConstantContracts(constant, context, errors);
+    validateConstantContracts(constant, context, values, errors);
   }
 
   for (const fn of module.functions) {
@@ -67,6 +72,19 @@ export function validateModule(module: TSCoreModule): string[] {
   }
 
   return errors;
+}
+
+// Values of the constants that evaluate; ones that do not are reported by expression validation.
+function evaluateConstants(module: TSCoreModule): Map<string, TSCoreValue> {
+  return new Map(
+    module.constants.flatMap((constant): Array<[string, TSCoreValue]> => {
+      try {
+        return [[constant.name, evaluate(constant.value)]];
+      } catch {
+        return [];
+      }
+    }),
+  );
 }
 
 function validateGeneratedIdentifiers(module: TSCoreModule, errors: string[]): void {
@@ -121,86 +139,25 @@ function requireUniqueGeneratedNames(module: TSCoreModule, errors: string[]): vo
     ...module.unions.map((union) => union.name),
     ...module.constants.map((constant) => constant.name),
     ...module.functions.map((fn) => fn.name),
-    ...module.stateMachines.flatMap((machine) => [machine.name, stateMachineGuardName(machine), machine.stateName, machine.actionName]),
+    ...module.stateMachines.flatMap((machine) => [machine.name, guardName(machine), runName(machine), machine.stateName, machine.actionName]),
   ];
 
   requireUnique(generatedNames, "generated Lean/TypeScript declarations", errors);
 }
 
-function stateMachineGuardName(machine: TSCoreStateMachine): string {
-  return `can${machine.name.slice(0, 1).toUpperCase()}${machine.name.slice(1)}`;
-}
+// Contract kinds whose theorem only restated the function body (Lean closed them with `rfl`).
+// Modules that still use them fail with a migration hint instead of silently losing the contract.
+const REMOVED_FUNCTION_CONTRACTS = new Set(["returnsField", "recordConstructor", "returnsVariant", "idempotent", "variantPredicate"]);
 
 function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, errors: string[]): void {
   for (const contract of fn.contracts ?? []) {
-    if (contract.kind === "idempotent") {
-      const [parameter] = fn.parameters;
-      if (fn.parameters.length !== 1 || !parameter) {
-        errors.push(`Function '${fn.name}' idempotent contract requires exactly one parameter.`);
-        continue;
-      }
+    const kind: string = contract.kind;
 
-      if (!sameType(parameter.type, fn.returns)) {
-        errors.push(`Function '${fn.name}' idempotent contract requires its return type to match '${parameter.name}'.`);
-      }
-
-      if (fn.body.kind !== "var" || fn.body.name !== parameter.name) {
-        errors.push(`Function '${fn.name}' idempotent contract currently requires an identity body.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "returnsVariant") {
-      const union = namedUnion(fn.returns, context);
-      if (!union) {
-        errors.push(`Function '${fn.name}' returnsVariant contract requires a union return type.`);
-        continue;
-      }
-
-      const variant = union.variants.find((candidate) => candidate.name === contract.variant);
-      if (!variant) {
-        errors.push(`Function '${fn.name}' returnsVariant contract references unknown variant '${contract.variant}'.`);
-        continue;
-      }
-
-      if (fn.body.kind !== "variant" || fn.body.unionName !== union.name || fn.body.variant !== contract.variant) {
-        errors.push(`Function '${fn.name}' returnsVariant contract must return '${union.name}.${contract.variant}' directly.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "recordConstructor") {
-      const record = namedRecord(fn.returns, context);
-      if (!record) {
-        errors.push(`Function '${fn.name}' recordConstructor contract requires a record return type.`);
-        continue;
-      }
-
-      if (fn.body.kind !== "record" || fn.body.typeName !== record.name) {
-        errors.push(`Function '${fn.name}' recordConstructor contract must return record '${record.name}' directly.`);
-        continue;
-      }
-
-      for (const field of record.fields) {
-        const parameter = fn.parameters.find((candidate) => candidate.name === field.name);
-        const fieldExpr = fn.body.fields[field.name];
-
-        if (!parameter) {
-          errors.push(`Function '${fn.name}' recordConstructor contract requires parameter '${field.name}'.`);
-          continue;
-        }
-
-        if (!sameType(parameter.type, field.type)) {
-          errors.push(`Function '${fn.name}' recordConstructor parameter '${field.name}' does not match the record field type.`);
-        }
-
-        if (!fieldExpr || fieldExpr.kind !== "var" || fieldExpr.name !== field.name) {
-          errors.push(`Function '${fn.name}' recordConstructor field '${field.name}' must be assigned from parameter '${field.name}'.`);
-        }
-      }
-
+    if (REMOVED_FUNCTION_CONTRACTS.has(kind)) {
+      errors.push(
+        `Function '${fn.name}' uses removed contract '${kind}', which only restated the function body. ` +
+          "Delete the contract (the function is still generated), or read the value directly and delete the function.",
+      );
       continue;
     }
 
@@ -225,37 +182,6 @@ function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, err
 
       if (!exprEndsWithString(fn.body, contract.suffix)) {
         errors.push(`Function '${fn.name}' returnsEndsWith contract requires a body ending with '${contract.suffix}'.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "variantPredicate") {
-      const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
-      const union = parameter ? namedUnion(parameter.type, context) : undefined;
-
-      if (!parameter || !union) {
-        errors.push(`Function '${fn.name}' variantPredicate contract requires a union parameter '${contract.parameter}'.`);
-        continue;
-      }
-
-      if (!isBoolType(fn.returns)) {
-        errors.push(`Function '${fn.name}' variantPredicate contract requires a Bool return type.`);
-      }
-
-      if (!union.variants.some((variant) => variant.name === contract.variant)) {
-        errors.push(`Function '${fn.name}' variantPredicate contract references unknown variant '${contract.variant}'.`);
-        continue;
-      }
-
-      if (
-        fn.body.kind !== "isVariant" ||
-        fn.body.target.kind !== "var" ||
-        fn.body.target.name !== contract.parameter ||
-        fn.body.unionName !== union.name ||
-        fn.body.variant !== contract.variant
-      ) {
-        errors.push(`Function '${fn.name}' variantPredicate contract must test '${contract.parameter}' for '${union.name}.${contract.variant}'.`);
       }
 
       continue;
@@ -298,212 +224,72 @@ function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, err
       continue;
     }
 
-    const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
-    if (!parameter) {
-      errors.push(`Function '${fn.name}' returnsField contract references unknown parameter '${contract.parameter}'.`);
+    errors.push(`Function '${fn.name}' has unknown contract kind '${kind}'.`);
+  }
+}
+
+function validateConstantContracts(
+  constant: TSCoreConstant,
+  context: TypeContext,
+  values: ReadonlyMap<string, TSCoreValue>,
+  errors: string[],
+): void {
+  const value = values.get(constant.name);
+
+  for (const contract of constant.contracts ?? []) {
+    const problem = constantContractProblem(constant, contract, context);
+
+    if (problem) {
+      errors.push(`Constant '${constant.name}' ${contract.kind} contract ${problem}`);
       continue;
     }
 
-    const record = namedRecord(parameter.type, context);
-    if (!record) {
-      errors.push(`Function '${fn.name}' returnsField contract parameter '${contract.parameter}' must be a record.`);
-      continue;
-    }
-
-    const field = record.fields.find((candidate) => candidate.name === contract.field);
-    if (!field) {
-      errors.push(`Function '${fn.name}' returnsField contract references unknown field '${contract.field}'.`);
-      continue;
-    }
-
-    if (!sameType(field.type, fn.returns)) {
-      errors.push(`Function '${fn.name}' returnsField contract field '${contract.field}' does not match the return type.`);
-    }
-
-    if (!isParameterFieldExpr(fn.body, contract.parameter, contract.field)) {
-      errors.push(`Function '${fn.name}' returnsField contract must return '${contract.parameter}.${contract.field}' directly.`);
+    if (value !== undefined && !constantContractHolds(contract, value, values)) {
+      const field = "field" in contract ? ` for field '${contract.field}'` : "";
+      errors.push(`Constant '${constant.name}' ${contract.kind} contract is false${field}.`);
     }
   }
 }
 
-function validateConstantContracts(constant: TSCoreConstant, context: TypeContext, errors: string[]): void {
-  for (const contract of constant.contracts ?? []) {
-    if (contract.kind === "nonEmptyArray") {
-      if (constant.type.kind !== "array") {
-        errors.push(`Constant '${constant.name}' nonEmptyArray contract requires an array type.`);
-        continue;
-      }
+// Why a contract does not fit the constant's type, or null when it does.
+function constantContractProblem(constant: TSCoreConstant, contract: TSCoreConstantContract, context: TypeContext): string | null {
+  if (contract.kind === "nonEmptyArray") {
+    return constant.type.kind === "array" ? null : "requires an array type.";
+  }
 
-      if (constant.value.kind !== "array" || constant.value.items.length === 0) {
-        errors.push(`Constant '${constant.name}' nonEmptyArray contract is false for the provided value.`);
-      }
-
-      continue;
+  if (contract.kind === "fieldEquals") {
+    const field = namedRecord(constant.type, context)?.fields.find((candidate) => candidate.name === contract.field);
+    if (!field) {
+      return `references unknown record field '${contract.field}'.`;
     }
+    return isStringType(field.type) ? null : "currently supports String fields only.";
+  }
 
-    if (contract.kind === "fieldEquals") {
-      const record = namedRecord(constant.type, context);
-      const field = record?.fields.find((candidate) => candidate.name === contract.field);
-      if (!record || !field) {
-        errors.push(`Constant '${constant.name}' fieldEquals contract references unknown record field '${contract.field}'.`);
-        continue;
-      }
+  const field = arrayItemRecord(constant.type, context)?.fields.find((candidate) => candidate.name === contract.field);
+  if (!field) {
+    return `references unknown item field '${contract.field}'.`;
+  }
 
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' fieldEquals contract currently supports String fields only.`);
-        continue;
-      }
+  if (!isStringType(field.type)) {
+    return "currently supports String fields only.";
+  }
 
-      const fieldValue = constant.value.kind === "record" ? constant.value.fields[contract.field] : undefined;
-      if (!fieldValue || fieldValue.kind !== "string" || fieldValue.value !== contract.value) {
-        errors.push(`Constant '${constant.name}' fieldEquals contract is false for field '${contract.field}'.`);
-      }
+  if (contract.kind === "allItemsFieldStartsWithOneOf" && contract.prefixes.length === 0) {
+    return "requires at least one prefix.";
+  }
 
-      continue;
+  if (contract.kind === "allItemsFieldInConstant") {
+    const target = context.constants.get(contract.constant);
+    const targetField = target ? arrayItemRecord(target.type, context)?.fields.find((candidate) => candidate.name === contract.constantField) : undefined;
+    if (!targetField) {
+      return `references invalid constant '${contract.constant}'.`;
     }
-
-    if (contract.kind === "allItemsFieldNonEmpty") {
-      const itemRecord = arrayItemRecord(constant.type, context);
-      const field = itemRecord?.fields.find((candidate) => candidate.name === contract.field);
-      if (!itemRecord || !field) {
-        errors.push(`Constant '${constant.name}' allItemsFieldNonEmpty contract references unknown item field '${contract.field}'.`);
-        continue;
-      }
-
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldNonEmpty contract currently supports String fields only.`);
-        continue;
-      }
-
-      const values = arrayRecordFieldStrings(constant.value, contract.field);
-      if (!values || values.some((value) => value.length === 0)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldNonEmpty contract is false for field '${contract.field}'.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "allItemsFieldUnique") {
-      const itemRecord = arrayItemRecord(constant.type, context);
-      const field = itemRecord?.fields.find((candidate) => candidate.name === contract.field);
-      if (!itemRecord || !field) {
-        errors.push(`Constant '${constant.name}' allItemsFieldUnique contract references unknown item field '${contract.field}'.`);
-        continue;
-      }
-
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldUnique contract currently supports String fields only.`);
-        continue;
-      }
-
-      const values = arrayRecordFieldStrings(constant.value, contract.field);
-      if (!values || new Set(values).size !== values.length) {
-        errors.push(`Constant '${constant.name}' allItemsFieldUnique contract is false for field '${contract.field}'.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "allItemsFieldStartsWith") {
-      const itemRecord = arrayItemRecord(constant.type, context);
-      const field = itemRecord?.fields.find((candidate) => candidate.name === contract.field);
-      if (!itemRecord || !field) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWith contract references unknown item field '${contract.field}'.`);
-        continue;
-      }
-
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWith contract currently supports String fields only.`);
-        continue;
-      }
-
-      const values = arrayRecordFieldStrings(constant.value, contract.field);
-      if (!values || values.some((value) => !value.startsWith(contract.prefix))) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWith contract is false for field '${contract.field}'.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "allItemsFieldStartsWithOneOf") {
-      const itemRecord = arrayItemRecord(constant.type, context);
-      const field = itemRecord?.fields.find((candidate) => candidate.name === contract.field);
-      if (!itemRecord || !field) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWithOneOf contract references unknown item field '${contract.field}'.`);
-        continue;
-      }
-
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWithOneOf contract currently supports String fields only.`);
-        continue;
-      }
-
-      if (contract.prefixes.length === 0) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWithOneOf contract requires at least one prefix.`);
-        continue;
-      }
-
-      const values = arrayRecordFieldStrings(constant.value, contract.field);
-      if (!values || values.some((value) => !contract.prefixes.some((prefix) => value.startsWith(prefix)))) {
-        errors.push(`Constant '${constant.name}' allItemsFieldStartsWithOneOf contract is false for field '${contract.field}'.`);
-      }
-
-      continue;
-    }
-
-    if (contract.kind === "allItemsFieldEmptyOrStartsWith") {
-      const itemRecord = arrayItemRecord(constant.type, context);
-      const field = itemRecord?.fields.find((candidate) => candidate.name === contract.field);
-      if (!itemRecord || !field) {
-        errors.push(`Constant '${constant.name}' allItemsFieldEmptyOrStartsWith contract references unknown item field '${contract.field}'.`);
-        continue;
-      }
-
-      if (!isStringType(field.type)) {
-        errors.push(`Constant '${constant.name}' allItemsFieldEmptyOrStartsWith contract currently supports String fields only.`);
-        continue;
-      }
-
-      const values = arrayRecordFieldStrings(constant.value, contract.field);
-      if (!values || values.some((value) => value.length > 0 && !value.startsWith(contract.prefix))) {
-        errors.push(`Constant '${constant.name}' allItemsFieldEmptyOrStartsWith contract is false for field '${contract.field}'.`);
-      }
-
-      continue;
-    }
-
-    const sourceRecord = arrayItemRecord(constant.type, context);
-    const sourceField = sourceRecord?.fields.find((candidate) => candidate.name === contract.field);
-    const targetConstant = context.constants.get(contract.constant);
-    const targetRecord = targetConstant ? arrayItemRecord(targetConstant.type, context) : undefined;
-    const targetField = targetRecord?.fields.find((candidate) => candidate.name === contract.constantField);
-
-    if (!sourceRecord || !sourceField) {
-      errors.push(`Constant '${constant.name}' allItemsFieldInConstant contract references unknown item field '${contract.field}'.`);
-      continue;
-    }
-
-    if (!targetConstant || !targetRecord || !targetField) {
-      errors.push(`Constant '${constant.name}' allItemsFieldInConstant contract references invalid constant '${contract.constant}'.`);
-      continue;
-    }
-
-    if (!sameType(sourceField.type, targetField.type)) {
-      errors.push(`Constant '${constant.name}' allItemsFieldInConstant contract compares fields with different types.`);
-      continue;
-    }
-
-    if (!isStringType(sourceField.type)) {
-      errors.push(`Constant '${constant.name}' allItemsFieldInConstant contract currently supports String fields only.`);
-      continue;
-    }
-
-    const sourceValues = arrayRecordFieldStrings(constant.value, contract.field);
-    const targetValues = arrayRecordFieldStrings(targetConstant.value, contract.constantField);
-    if (!sourceValues || !targetValues || sourceValues.some((value) => !targetValues.includes(value))) {
-      errors.push(`Constant '${constant.name}' allItemsFieldInConstant contract is false for field '${contract.field}'.`);
+    if (!isStringType(targetField.type)) {
+      return "compares fields with different types.";
     }
   }
+
+  return null;
 }
 
 function validateStateMachine(machine: TSCoreStateMachine, errors: string[]): void {
@@ -540,6 +326,30 @@ function validateStateMachine(machine: TSCoreStateMachine, errors: string[]): vo
     const outgoing = machine.transitions.find((transition) => transition.from === state && transition.to !== state);
     if (outgoing) {
       errors.push(`Terminal state '${state}' in '${machine.name}' has an outgoing transition for action '${outgoing.action}'.`);
+    }
+  }
+
+  const { initialState } = machine;
+  if (initialState !== undefined) {
+    if (!machine.states.includes(initialState)) {
+      errors.push(`Initial state '${initialState}' is not a state in '${machine.name}'.`);
+    } else {
+      const reachable = reachableFrom(machine, initialState);
+      for (const state of machine.states.filter((candidate) => !reachable.has(candidate))) {
+        errors.push(`State '${state}' in '${machine.name}' is unreachable from initial state '${initialState}'.`);
+      }
+    }
+  }
+
+  for (const { from, to } of machine.never ?? []) {
+    if (!machine.states.includes(from) || !machine.states.includes(to)) {
+      errors.push(`State machine '${machine.name}' never property '${from}' -> '${to}' references an unknown state.`);
+      continue;
+    }
+
+    const path = reachableFrom(machine, from).get(to);
+    if (path) {
+      errors.push(`State machine '${machine.name}' never property '${from}' -> '${to}' is false: actions [${path.join(", ")}] reach '${to}'.`);
     }
   }
 }
@@ -771,28 +581,6 @@ function namedUnion(type: TSCoreType, context: TypeContext): TSCoreTaggedUnion |
 
 function arrayItemRecord(type: TSCoreType, context: TypeContext): TSCoreRecord | undefined {
   return type.kind === "array" ? namedRecord(type.item, context) : undefined;
-}
-
-function arrayRecordFieldStrings(expr: TSCoreExpr, field: string): string[] | undefined {
-  if (expr.kind !== "array") {
-    return undefined;
-  }
-
-  const values: string[] = [];
-  for (const item of expr.items) {
-    const fieldValue = item.kind === "record" ? item.fields[field] : undefined;
-    if (!fieldValue || fieldValue.kind !== "string") {
-      return undefined;
-    }
-
-    values.push(fieldValue.value);
-  }
-
-  return values;
-}
-
-function isParameterFieldExpr(expr: TSCoreExpr, parameter: string, field: string): boolean {
-  return expr.kind === "field" && expr.field === field && expr.target.kind === "var" && expr.target.name === parameter;
 }
 
 function isNonEmptyFieldsExpr(expr: TSCoreExpr, parameter: string, fields: string[]): boolean {
