@@ -19,11 +19,16 @@ export default defineModule({
     },
   ],
   constants: [
-    recordList("builtInScanCategories", ScanCategory, [{ name: "Project Checks" }, { name: "Discovered Boundaries" }], {
-      nonEmpty: true,
-      nonEmptyFields: ["name"],
-      unique: ["name"],
-    }),
+    recordList(
+      "builtInScanCategories",
+      ScanCategory,
+      [{ name: "Project Checks" }, { name: "Discovered Boundaries" }],
+      {
+        nonEmpty: true,
+        nonEmptyFields: ["name"],
+        unique: ["name"],
+      },
+    ),
   ],
   functions: [],
   stateMachines: [

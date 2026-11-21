@@ -13,7 +13,11 @@ export function runName(machine: TSCoreStateMachine): string {
 }
 
 export function step(machine: TSCoreStateMachine, state: string, action: string): string {
-  return machine.transitions.find((transition) => transition.from === state && transition.action === action)?.to ?? state;
+  return (
+    machine.transitions.find(
+      (transition) => transition.from === state && transition.action === action,
+    )?.to ?? state
+  );
 }
 
 // Every state reachable from `from`, each with a shortest action sequence that reaches it.

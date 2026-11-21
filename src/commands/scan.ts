@@ -1,18 +1,18 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { ProofManifest } from "../manifest.ts";
 import { loadBipConfig } from "../config/load.ts";
 import type { BipScanCheck } from "../config/types.ts";
-import { checkProjectModules, type ModuleFreshness } from "./verify-project.ts";
-import { discoverBoundaries } from "../scan/discover-boundaries.ts";
-import type { Finding, FindingSeverity, ScoreItem } from "../scan/types.ts";
 import {
   builtInScanCategories,
-  scanGateStatusTransition,
   type ScanFindingSignal,
   type ScanGateStatus,
+  scanGateStatusTransition,
 } from "../generated/bip/runtime/ScanScoring.ts";
+import type { ProofManifest } from "../manifest.ts";
+import { discoverBoundaries } from "../scan/discover-boundaries.ts";
+import type { Finding, FindingSeverity, ScoreItem } from "../scan/types.ts";
 import { readPackageVersion } from "../version.ts";
+import { checkProjectModules, type ModuleFreshness } from "./verify-project.ts";
 
 const [projectChecksCategory, discoveredBoundariesCategory] = builtInScanCategories;
 
@@ -37,11 +37,17 @@ export async function scanProject(rootPath: string): Promise<void> {
   console.log("");
   console.log(`Scanning ${root}...`);
   console.log("");
-  console.log(loaded ? `- Config. Found ${path.relative(root, loaded.path)}.` : "- Config. Not found. Running discovery-only scan.");
+  console.log(
+    loaded
+      ? `- Config. Found ${path.relative(root, loaded.path)}.`
+      : "- Config. Not found. Running discovery-only scan.",
+  );
   console.log(`- Framework. ${packageInfo.framework}.`);
   console.log(`- Language. ${packageInfo.language}.`);
   console.log(`- Found ${sourceFiles.length} source files.`);
-  console.log(`- Found ${config.modules.length} Bip module${config.modules.length === 1 ? "" : "s"}.`);
+  console.log(
+    `- Found ${config.modules.length} Bip module${config.modules.length === 1 ? "" : "s"}.`,
+  );
   console.log("");
 
   for (const freshness of loaded ? await checkProjectModules(loaded) : []) {
@@ -62,7 +68,9 @@ export async function scanProject(rootPath: string): Promise<void> {
   }
 }
 
-async function loadOptionalBipConfig(root: string): Promise<Awaited<ReturnType<typeof loadBipConfig>> | null> {
+async function loadOptionalBipConfig(
+  root: string,
+): Promise<Awaited<ReturnType<typeof loadBipConfig>> | null> {
   try {
     return await loadBipConfig(root);
   } catch (error) {
@@ -74,7 +82,12 @@ async function loadOptionalBipConfig(root: string): Promise<Awaited<ReturnType<t
   }
 }
 
-function inspectModule(root: string, { moduleConfig, staleFiles, error }: ModuleFreshness, findings: Finding[], scores: ScoreItem[]): void {
+function inspectModule(
+  root: string,
+  { moduleConfig, staleFiles, error }: ModuleFreshness,
+  findings: Finding[],
+  scores: ScoreItem[],
+): void {
   const category = moduleConfig.category ?? "Proof Modules";
   const weight = moduleConfig.weight ?? 10;
   const sourcePath = path.resolve(root, moduleConfig.source);
@@ -122,7 +135,8 @@ function inspectModule(root: string, { moduleConfig, staleFiles, error }: Module
       severity: "error",
       title: "Lean proof not checked",
       detail: `Module '${moduleConfig.name}' reports Lean status '${manifest.leanCheck.status}'.`,
-      recommendation: "Install Lean with elan or fix the generated proof errors before trusting this module.",
+      recommendation:
+        "Install Lean with elan or fix the generated proof errors before trusting this module.",
       location: relative(root, manifestPath),
     });
   }
@@ -134,7 +148,8 @@ function inspectModule(root: string, { moduleConfig, staleFiles, error }: Module
       severity: "warn",
       title: "No verified exports",
       detail: `Module '${moduleConfig.name}' has a manifest but no verified exports.`,
-      recommendation: "Add constants, functions, or state machines with contracts to the TSCore module.",
+      recommendation:
+        "Add constants, functions, or state machines with contracts to the TSCore module.",
       location: relative(root, manifestPath),
     });
   }
@@ -168,7 +183,8 @@ function inspectModule(root: string, { moduleConfig, staleFiles, error }: Module
       severity: "error",
       title: "Generated artifacts are stale",
       detail: `Module '${moduleConfig.name}' has generated files that differ from a fresh generation of its TSCore source.`,
-      recommendation: "Run `bunx bip verify` and commit the result. `bunx bip verify --check` reports the same thing in CI.",
+      recommendation:
+        "Run `bunx bip verify` and commit the result. `bunx bip verify --check` reports the same thing in CI.",
       location: staleFiles.map((file) => relative(root, file)).join(", "),
       affectedCount: staleFiles.length,
     });
@@ -176,11 +192,19 @@ function inspectModule(root: string, { moduleConfig, staleFiles, error }: Module
 
   const status = scoreGateStatus(findings.slice(findingStart));
   score.earned = status === "error" ? 0 : status === "warn" ? Math.round(weight * 0.5) : weight;
-  score.properties = status === "error" ? 0 : manifest.verifiedExports.reduce((sum, item) => sum + item.properties.length, 0);
+  score.properties =
+    status === "error"
+      ? 0
+      : manifest.verifiedExports.reduce((sum, item) => sum + item.properties.length, 0);
   scores.push(score);
 }
 
-function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding[], scores: ScoreItem[]): void {
+function runConfiguredCheck(
+  root: string,
+  check: BipScanCheck,
+  findings: Finding[],
+  scores: ScoreItem[],
+): void {
   const category = check.category ?? PROJECT_CHECKS_CATEGORY;
   const weight = check.weight ?? 10;
   const [command, ...args] = check.command;
@@ -192,7 +216,7 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
       severity: "warn",
       title: "Empty check command",
       detail: `Configured check '${check.name}' has no command.`,
-      recommendation: "Add a command array such as [\"bun\", \"run\", \"typecheck\"].",
+      recommendation: 'Add a command array such as ["bun", "run", "typecheck"].',
     });
     scores.push({ category, name: check.name, weight, earned: 0 });
     return;
@@ -216,7 +240,8 @@ function runConfiguredCheck(root: string, check: BipScanCheck, findings: Finding
     severity: "error",
     title: "Configured check failed",
     detail: `Check '${check.name}' exited with code ${result.exitCode}.`,
-    recommendation: "Run the check command directly, fix the reported issue, then run `bunx bip scan` again.",
+    recommendation:
+      "Run the check command directly, fix the reported issue, then run `bunx bip scan` again.",
     location: check.command.join(" "),
   });
   scores.push({ category, name: check.name, weight, earned: 0 });
@@ -242,7 +267,8 @@ function printFindings(findings: Finding[]): void {
 
     for (const item of items) {
       const marker = item.severity === "error" ? "✖" : item.severity === "warn" ? "⚠" : "ℹ";
-      const affectedLabel = item.affectedCount && item.affectedCount > 1 ? ` ×${item.affectedCount}` : "";
+      const affectedLabel =
+        item.affectedCount && item.affectedCount > 1 ? ` ×${item.affectedCount}` : "";
       console.log(`  ${marker} ${item.title}${affectedLabel}`);
       console.log(`    Rule: ${item.ruleId}`);
       console.log(`    ${item.detail}`);
@@ -275,7 +301,10 @@ function dedupeFindings(findings: Finding[]): Finding[] {
   return deduped;
 }
 
-function compareCategoryGroups([categoryA, itemsA]: [string, Finding[]], [categoryB, itemsB]: [string, Finding[]]): number {
+function compareCategoryGroups(
+  [categoryA, itemsA]: [string, Finding[]],
+  [categoryB, itemsB]: [string, Finding[]],
+): number {
   const severityDelta = severityRank(worstSeverity(itemsA)) - severityRank(worstSeverity(itemsB));
 
   if (severityDelta !== 0) {
@@ -338,7 +367,11 @@ function scoreGateStatus(findings: Finding[]): ScanGateStatus {
 }
 
 function severitySignal(severity: FindingSeverity): ScanFindingSignal {
-  return severity === "error" ? "observeError" : severity === "warn" ? "observeWarn" : "observeInfo";
+  return severity === "error"
+    ? "observeError"
+    : severity === "warn"
+      ? "observeWarn"
+      : "observeInfo";
 }
 
 function totalAffectedCount(findings: Finding[]): number {
@@ -350,7 +383,9 @@ function totalAffectedCount(findings: Finding[]): number {
 function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number): void {
   const total = scores.reduce((sum, item) => sum + item.weight, 0);
   const earned = scores.reduce((sum, item) => sum + item.earned, 0);
-  const checkedModules = scores.filter((item) => item.properties !== undefined && item.earned === item.weight);
+  const checkedModules = scores.filter(
+    (item) => item.properties !== undefined && item.earned === item.weight,
+  );
   const properties = checkedModules.reduce((sum, item) => sum + (item.properties ?? 0), 0);
   const issueCount = findings.filter((finding) => finding.severity !== "info").length;
 
@@ -361,7 +396,9 @@ function printScore(scores: ScoreItem[], findings: Finding[], elapsedMs: number)
   }
 
   console.log("");
-  console.log(`  ${issueCount} issue${issueCount === 1 ? "" : "s"} across ${scores.length} verification gate${scores.length === 1 ? "" : "s"} in ${elapsedMs}ms`);
+  console.log(
+    `  ${issueCount} issue${issueCount === 1 ? "" : "s"} across ${scores.length} verification gate${scores.length === 1 ? "" : "s"} in ${elapsedMs}ms`,
+  );
   console.log(
     `  ${properties} propert${properties === 1 ? "y" : "ies"} proved across ${checkedModules.length} checked proof module${checkedModules.length === 1 ? "" : "s"}`,
   );
@@ -378,15 +415,24 @@ function readPackageInfo(root: string): { framework: string; language: string } 
     return { framework: "No package.json found", language: "Unknown" };
   }
 
-  const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
   const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
   if (dependencies.next) {
-    return { framework: `Next.js ${dependencies.next}`, language: dependencies.typescript ? "TypeScript" : "JavaScript" };
+    return {
+      framework: `Next.js ${dependencies.next}`,
+      language: dependencies.typescript ? "TypeScript" : "JavaScript",
+    };
   }
 
   if (dependencies.react) {
-    return { framework: `React ${dependencies.react}`, language: dependencies.typescript ? "TypeScript" : "JavaScript" };
+    return {
+      framework: `React ${dependencies.react}`,
+      language: dependencies.typescript ? "TypeScript" : "JavaScript",
+    };
   }
 
   return { framework: "Unknown", language: dependencies.typescript ? "TypeScript" : "JavaScript" };

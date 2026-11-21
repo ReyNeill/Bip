@@ -70,14 +70,23 @@ async function leanCommand(): Promise<{ command: string[] } | { failure: string 
 
 async function run(cmd: string[]): Promise<{ exitCode: number; output: string }> {
   const proc = Bun.spawn(cmd, { stderr: "pipe", stdout: "pipe" });
-  const [exitCode, stdout, stderr] = await Promise.all([proc.exited, new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
 
   return { exitCode, output: [stderr, stdout].filter(Boolean).join("\n") };
 }
 
 async function findCommand(command: string): Promise<string | null> {
-  const pathCandidates = (process.env.PATH ?? "").split(path.delimiter).map((dir) => path.join(dir, command));
-  const candidates = [...pathCandidates, path.join(process.env.HOME ?? "", ".elan", "bin", command)];
+  const pathCandidates = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .map((dir) => path.join(dir, command));
+  const candidates = [
+    ...pathCandidates,
+    path.join(process.env.HOME ?? "", ".elan", "bin", command),
+  ];
 
   for (const candidate of candidates) {
     try {

@@ -1,7 +1,7 @@
 import path from "node:path";
-import { loadBipConfig, type LoadedBipConfig } from "../config/load.ts";
+import { type LoadedBipConfig, loadBipConfig } from "../config/load.ts";
 import type { BipModuleConfig } from "../config/types.ts";
-import { findStaleArtifacts, verifyCore, type VerifyCoreOptions } from "./verify-core.ts";
+import { findStaleArtifacts, type VerifyCoreOptions, verifyCore } from "./verify-core.ts";
 
 // `bip verify`: regenerates and Lean-checks every configured module.
 export async function verifyProject(rootPath: string): Promise<void> {
@@ -28,7 +28,9 @@ export async function checkProject(rootPath: string): Promise<void> {
   const failed = results.filter((result) => result.error);
 
   for (const result of failed) {
-    console.error(`Module '${result.moduleConfig.name}' could not be regenerated:\n${result.error}`);
+    console.error(
+      `Module '${result.moduleConfig.name}' could not be regenerated:\n${result.error}`,
+    );
     process.exitCode = 1;
   }
 
@@ -51,9 +53,17 @@ export async function checkProjectModules(loaded: LoadedBipConfig): Promise<Modu
 
     for (const moduleConfig of loaded.config.modules) {
       try {
-        results.push({ moduleConfig, staleFiles: await findStaleArtifacts(moduleOptions(loaded, moduleConfig)), error: null });
+        results.push({
+          moduleConfig,
+          staleFiles: await findStaleArtifacts(moduleOptions(loaded, moduleConfig)),
+          error: null,
+        });
       } catch (error) {
-        results.push({ moduleConfig, staleFiles: [], error: error instanceof Error ? error.message : String(error) });
+        results.push({
+          moduleConfig,
+          staleFiles: [],
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -64,7 +74,9 @@ export async function checkProjectModules(loaded: LoadedBipConfig): Promise<Modu
 // Prints the outcome of a staleness check and sets a failing exit code when files are stale.
 export function reportStaleArtifacts(staleFiles: string[], moduleCount: number): void {
   if (staleFiles.length === 0) {
-    console.log(`Bip generated artifacts are current (${moduleCount} module${moduleCount === 1 ? "" : "s"}).`);
+    console.log(
+      `Bip generated artifacts are current (${moduleCount} module${moduleCount === 1 ? "" : "s"}).`,
+    );
     return;
   }
 

@@ -2,13 +2,21 @@ import type { TSCoreConstantContract, TSCoreExpr } from "./types.ts";
 
 // A runtime value, shaped exactly like the generated TypeScript: records are plain objects and a
 // union variant is an object carrying its tag field.
-export type TSCoreValue = string | number | boolean | readonly TSCoreValue[] | { readonly [field: string]: TSCoreValue };
+export type TSCoreValue =
+  | string
+  | number
+  | boolean
+  | readonly TSCoreValue[]
+  | { readonly [field: string]: TSCoreValue };
 
 export type RecordValue = { readonly [field: string]: TSCoreValue };
 
 // Reference semantics for TSCore expressions. Validation checks constant contracts with it, and the
 // emitter tests compare both the generated TypeScript and the generated Lean against it.
-export function evaluate(expr: TSCoreExpr, env: ReadonlyMap<string, TSCoreValue> = new Map()): TSCoreValue {
+export function evaluate(
+  expr: TSCoreExpr,
+  env: ReadonlyMap<string, TSCoreValue> = new Map(),
+): TSCoreValue {
   switch (expr.kind) {
     case "var": {
       const value = env.get(expr.name);
@@ -76,14 +84,23 @@ export function constantContractHolds(
   }
 }
 
-function evaluateFields(fields: Record<string, TSCoreExpr>, env: ReadonlyMap<string, TSCoreValue>): RecordValue {
-  return Object.fromEntries(Object.entries(fields).map(([field, expr]) => [field, evaluate(expr, env)]));
+function evaluateFields(
+  fields: Record<string, TSCoreExpr>,
+  env: ReadonlyMap<string, TSCoreValue>,
+): RecordValue {
+  return Object.fromEntries(
+    Object.entries(fields).map(([field, expr]) => [field, evaluate(expr, env)]),
+  );
 }
 
 // String values of `field` across an array of records; non-string fields read as "" (validation
 // rejects contracts on non-string fields before they are evaluated).
 function itemFields(value: TSCoreValue, field: string): string[] {
-  return isList(value) ? value.map((item) => fieldOf(item, field)).map((item) => (typeof item === "string" ? item : "")) : [];
+  return isList(value)
+    ? value
+        .map((item) => fieldOf(item, field))
+        .map((item) => (typeof item === "string" ? item : ""))
+    : [];
 }
 
 function fieldOf(value: TSCoreValue, field: string): TSCoreValue | undefined {

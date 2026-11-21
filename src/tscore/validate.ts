@@ -38,14 +38,32 @@ export function validateModule(module: TSCoreModule): string[] {
   validateGeneratedIdentifiers(module, errors);
 
   for (const record of module.records) {
-    requireUnique(record.fields.map((field) => field.name), `record ${record.name}`, errors);
-    validateTypes(record.fields.map((field) => field.type), context, `record ${record.name}`, errors);
+    requireUnique(
+      record.fields.map((field) => field.name),
+      `record ${record.name}`,
+      errors,
+    );
+    validateTypes(
+      record.fields.map((field) => field.type),
+      context,
+      `record ${record.name}`,
+      errors,
+    );
   }
 
   for (const union of module.unions) {
-    requireUnique(union.variants.map((variant) => variant.name), `union ${union.name}`, errors);
+    requireUnique(
+      union.variants.map((variant) => variant.name),
+      `union ${union.name}`,
+      errors,
+    );
     for (const variant of union.variants) {
-      validateTypes(variant.fields?.map((field) => field.type) ?? [], context, `variant ${union.name}.${variant.name}`, errors);
+      validateTypes(
+        variant.fields?.map((field) => field.type) ?? [],
+        context,
+        `variant ${union.name}.${variant.name}`,
+        errors,
+      );
     }
   }
 
@@ -54,16 +72,37 @@ export function validateModule(module: TSCoreModule): string[] {
   for (const constant of module.constants) {
     const constantContext = { ...context, variables: new Map<string, TSCoreType>() };
     validateTypes([constant.type], context, `constant ${constant.name}`, errors);
-    validateExprAgainst(constant.value, constant.type, constantContext, `constant ${constant.name}`, errors);
+    validateExprAgainst(
+      constant.value,
+      constant.type,
+      constantContext,
+      `constant ${constant.name}`,
+      errors,
+    );
     validateConstantContracts(constant, context, values, errors);
   }
 
   for (const fn of module.functions) {
-    requireUnique(fn.parameters.map((parameter) => parameter.name), `function ${fn.name}`, errors);
-    validateTypes([fn.returns, ...fn.parameters.map((parameter) => parameter.type)], context, `function ${fn.name}`, errors);
+    requireUnique(
+      fn.parameters.map((parameter) => parameter.name),
+      `function ${fn.name}`,
+      errors,
+    );
+    validateTypes(
+      [fn.returns, ...fn.parameters.map((parameter) => parameter.type)],
+      context,
+      `function ${fn.name}`,
+      errors,
+    );
 
     const variables = new Map(fn.parameters.map((parameter) => [parameter.name, parameter.type]));
-    validateExprAgainst(fn.body, fn.returns, { ...context, variables }, `function ${fn.name} body`, errors);
+    validateExprAgainst(
+      fn.body,
+      fn.returns,
+      { ...context, variables },
+      `function ${fn.name} body`,
+      errors,
+    );
     validateFunctionContracts(fn, context, errors);
   }
 
@@ -103,7 +142,11 @@ function validateGeneratedIdentifiers(module: TSCoreModule, errors: string[]): v
     for (const variant of union.variants) {
       requireIdentifier(variant.name, `variant name in union ${union.name}`, errors);
       for (const field of variant.fields ?? []) {
-        requireIdentifier(field.name, `payload field in variant ${union.name}.${variant.name}`, errors);
+        requireIdentifier(
+          field.name,
+          `payload field in variant ${union.name}.${variant.name}`,
+          errors,
+        );
       }
     }
   }
@@ -139,7 +182,13 @@ function requireUniqueGeneratedNames(module: TSCoreModule, errors: string[]): vo
     ...module.unions.map((union) => union.name),
     ...module.constants.map((constant) => constant.name),
     ...module.functions.map((fn) => fn.name),
-    ...module.stateMachines.flatMap((machine) => [machine.name, guardName(machine), runName(machine), machine.stateName, machine.actionName]),
+    ...module.stateMachines.flatMap((machine) => [
+      machine.name,
+      guardName(machine),
+      runName(machine),
+      machine.stateName,
+      machine.actionName,
+    ]),
   ];
 
   requireUnique(generatedNames, "generated Lean/TypeScript declarations", errors);
@@ -147,9 +196,19 @@ function requireUniqueGeneratedNames(module: TSCoreModule, errors: string[]): vo
 
 // Contract kinds whose theorem only restated the function body (Lean closed them with `rfl`).
 // Modules that still use them fail with a migration hint instead of silently losing the contract.
-const REMOVED_FUNCTION_CONTRACTS = new Set(["returnsField", "recordConstructor", "returnsVariant", "idempotent", "variantPredicate"]);
+const REMOVED_FUNCTION_CONTRACTS = new Set([
+  "returnsField",
+  "recordConstructor",
+  "returnsVariant",
+  "idempotent",
+  "variantPredicate",
+]);
 
-function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, errors: string[]): void {
+function validateFunctionContracts(
+  fn: TSCoreFunction,
+  context: TypeContext,
+  errors: string[],
+): void {
   for (const contract of fn.contracts ?? []) {
     const kind: string = contract.kind;
 
@@ -163,12 +222,16 @@ function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, err
 
     if (contract.kind === "returnsStartsWith") {
       if (!isStringType(fn.returns)) {
-        errors.push(`Function '${fn.name}' returnsStartsWith contract requires a String return type.`);
+        errors.push(
+          `Function '${fn.name}' returnsStartsWith contract requires a String return type.`,
+        );
         continue;
       }
 
       if (!exprStartsWithString(fn.body, contract.prefix)) {
-        errors.push(`Function '${fn.name}' returnsStartsWith contract requires a body starting with '${contract.prefix}'.`);
+        errors.push(
+          `Function '${fn.name}' returnsStartsWith contract requires a body starting with '${contract.prefix}'.`,
+        );
       }
 
       continue;
@@ -176,12 +239,16 @@ function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, err
 
     if (contract.kind === "returnsEndsWith") {
       if (!isStringType(fn.returns)) {
-        errors.push(`Function '${fn.name}' returnsEndsWith contract requires a String return type.`);
+        errors.push(
+          `Function '${fn.name}' returnsEndsWith contract requires a String return type.`,
+        );
         continue;
       }
 
       if (!exprEndsWithString(fn.body, contract.suffix)) {
-        errors.push(`Function '${fn.name}' returnsEndsWith contract requires a body ending with '${contract.suffix}'.`);
+        errors.push(
+          `Function '${fn.name}' returnsEndsWith contract requires a body ending with '${contract.suffix}'.`,
+        );
       }
 
       continue;
@@ -192,33 +259,45 @@ function validateFunctionContracts(fn: TSCoreFunction, context: TypeContext, err
       const record = parameter ? namedRecord(parameter.type, context) : undefined;
 
       if (!parameter || !record) {
-        errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate contract requires a record parameter '${contract.parameter}'.`);
+        errors.push(
+          `Function '${fn.name}' nonEmptyFieldsPredicate contract requires a record parameter '${contract.parameter}'.`,
+        );
         continue;
       }
 
       if (!isBoolType(fn.returns)) {
-        errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate contract requires a Bool return type.`);
+        errors.push(
+          `Function '${fn.name}' nonEmptyFieldsPredicate contract requires a Bool return type.`,
+        );
       }
 
       if (contract.fields.length === 0) {
-        errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate contract requires at least one field.`);
+        errors.push(
+          `Function '${fn.name}' nonEmptyFieldsPredicate contract requires at least one field.`,
+        );
         continue;
       }
 
       for (const fieldName of contract.fields) {
         const field = record.fields.find((candidate) => candidate.name === fieldName);
         if (!field) {
-          errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate contract references unknown field '${fieldName}'.`);
+          errors.push(
+            `Function '${fn.name}' nonEmptyFieldsPredicate contract references unknown field '${fieldName}'.`,
+          );
           continue;
         }
 
         if (!isStringType(field.type)) {
-          errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate field '${fieldName}' must be a String field.`);
+          errors.push(
+            `Function '${fn.name}' nonEmptyFieldsPredicate field '${fieldName}' must be a String field.`,
+          );
         }
       }
 
       if (!isNonEmptyFieldsExpr(fn.body, contract.parameter, contract.fields)) {
-        errors.push(`Function '${fn.name}' nonEmptyFieldsPredicate contract must check the listed fields for non-empty strings.`);
+        errors.push(
+          `Function '${fn.name}' nonEmptyFieldsPredicate contract must check the listed fields for non-empty strings.`,
+        );
       }
 
       continue;
@@ -252,20 +331,28 @@ function validateConstantContracts(
 }
 
 // Why a contract does not fit the constant's type, or null when it does.
-function constantContractProblem(constant: TSCoreConstant, contract: TSCoreConstantContract, context: TypeContext): string | null {
+function constantContractProblem(
+  constant: TSCoreConstant,
+  contract: TSCoreConstantContract,
+  context: TypeContext,
+): string | null {
   if (contract.kind === "nonEmptyArray") {
     return constant.type.kind === "array" ? null : "requires an array type.";
   }
 
   if (contract.kind === "fieldEquals") {
-    const field = namedRecord(constant.type, context)?.fields.find((candidate) => candidate.name === contract.field);
+    const field = namedRecord(constant.type, context)?.fields.find(
+      (candidate) => candidate.name === contract.field,
+    );
     if (!field) {
       return `references unknown record field '${contract.field}'.`;
     }
     return isStringType(field.type) ? null : "currently supports String fields only.";
   }
 
-  const field = arrayItemRecord(constant.type, context)?.fields.find((candidate) => candidate.name === contract.field);
+  const field = arrayItemRecord(constant.type, context)?.fields.find(
+    (candidate) => candidate.name === contract.field,
+  );
   if (!field) {
     return `references unknown item field '${contract.field}'.`;
   }
@@ -280,7 +367,11 @@ function constantContractProblem(constant: TSCoreConstant, contract: TSCoreConst
 
   if (contract.kind === "allItemsFieldInConstant") {
     const target = context.constants.get(contract.constant);
-    const targetField = target ? arrayItemRecord(target.type, context)?.fields.find((candidate) => candidate.name === contract.constantField) : undefined;
+    const targetField = target
+      ? arrayItemRecord(target.type, context)?.fields.find(
+          (candidate) => candidate.name === contract.constantField,
+        )
+      : undefined;
     if (!targetField) {
       return `references invalid constant '${contract.constant}'.`;
     }
@@ -300,17 +391,23 @@ function validateStateMachine(machine: TSCoreStateMachine, errors: string[]): vo
   for (const transition of machine.transitions) {
     const key = `${transition.from}:${transition.action}`;
     if (transitionKeys.has(key)) {
-      errors.push(`State machine '${machine.name}' has duplicate transition for '${transition.from}' and '${transition.action}'.`);
+      errors.push(
+        `State machine '${machine.name}' has duplicate transition for '${transition.from}' and '${transition.action}'.`,
+      );
     }
 
     transitionKeys.add(key);
 
     if (!machine.states.includes(transition.from)) {
-      errors.push(`Transition '${machine.name}' references unknown source state '${transition.from}'.`);
+      errors.push(
+        `Transition '${machine.name}' references unknown source state '${transition.from}'.`,
+      );
     }
 
     if (!machine.states.includes(transition.to)) {
-      errors.push(`Transition '${machine.name}' references unknown target state '${transition.to}'.`);
+      errors.push(
+        `Transition '${machine.name}' references unknown target state '${transition.to}'.`,
+      );
     }
 
     if (!machine.actions.includes(transition.action)) {
@@ -323,9 +420,13 @@ function validateStateMachine(machine: TSCoreStateMachine, errors: string[]): vo
       errors.push(`Terminal state '${state}' is not a state in '${machine.name}'.`);
     }
 
-    const outgoing = machine.transitions.find((transition) => transition.from === state && transition.to !== state);
+    const outgoing = machine.transitions.find(
+      (transition) => transition.from === state && transition.to !== state,
+    );
     if (outgoing) {
-      errors.push(`Terminal state '${state}' in '${machine.name}' has an outgoing transition for action '${outgoing.action}'.`);
+      errors.push(
+        `Terminal state '${state}' in '${machine.name}' has an outgoing transition for action '${outgoing.action}'.`,
+      );
     }
   }
 
@@ -336,31 +437,46 @@ function validateStateMachine(machine: TSCoreStateMachine, errors: string[]): vo
     } else {
       const reachable = reachableFrom(machine, initialState);
       for (const state of machine.states.filter((candidate) => !reachable.has(candidate))) {
-        errors.push(`State '${state}' in '${machine.name}' is unreachable from initial state '${initialState}'.`);
+        errors.push(
+          `State '${state}' in '${machine.name}' is unreachable from initial state '${initialState}'.`,
+        );
       }
     }
   }
 
   for (const { from, to } of machine.never ?? []) {
     if (!machine.states.includes(from) || !machine.states.includes(to)) {
-      errors.push(`State machine '${machine.name}' never property '${from}' -> '${to}' references an unknown state.`);
+      errors.push(
+        `State machine '${machine.name}' never property '${from}' -> '${to}' references an unknown state.`,
+      );
       continue;
     }
 
     const path = reachableFrom(machine, from).get(to);
     if (path) {
-      errors.push(`State machine '${machine.name}' never property '${from}' -> '${to}' is false: actions [${path.join(", ")}] reach '${to}'.`);
+      errors.push(
+        `State machine '${machine.name}' never property '${from}' -> '${to}' is false: actions [${path.join(", ")}] reach '${to}'.`,
+      );
     }
   }
 }
 
-function validateTypes(types: TSCoreType[], context: TypeContext, location: string, errors: string[]): void {
+function validateTypes(
+  types: TSCoreType[],
+  context: TypeContext,
+  location: string,
+  errors: string[],
+): void {
   for (const type of types) {
     if (type.kind === "array") {
       validateTypes([type.item], context, location, errors);
     }
 
-    if (type.kind === "named" && !context.records.has(type.name) && !context.unions.has(type.name)) {
+    if (
+      type.kind === "named" &&
+      !context.records.has(type.name) &&
+      !context.unions.has(type.name)
+    ) {
       errors.push(`${location} references unknown type '${type.name}'.`);
     }
   }
@@ -375,7 +491,9 @@ function validateExprAgainst(
 ): void {
   const actual = inferExprType(expr, expected, context, location, errors);
   if (actual && !sameType(actual, expected)) {
-    errors.push(`${location} has type '${formatType(actual)}' but expected '${formatType(expected)}'.`);
+    errors.push(
+      `${location} has type '${formatType(actual)}' but expected '${formatType(expected)}'.`,
+    );
   }
 }
 
@@ -408,7 +526,9 @@ function inferExprType(
       errors.push(`${location} uses a Nat literal that is not a non-negative integer.`);
     }
 
-    return expected?.kind === "primitive" && expected.name === "Int" ? expected : { kind: "primitive", name: "Nat" };
+    return expected?.kind === "primitive" && expected.name === "Int"
+      ? expected
+      : { kind: "primitive", name: "Nat" };
   }
 
   if (expr.kind === "array") {
@@ -430,7 +550,13 @@ function inferExprType(
     }
 
     for (const [index, part] of expr.parts.entries()) {
-      validateExprAgainst(part, { kind: "primitive", name: "String" }, context, `${location}.concat[${index}]`, errors);
+      validateExprAgainst(
+        part,
+        { kind: "primitive", name: "String" },
+        context,
+        `${location}.concat[${index}]`,
+        errors,
+      );
     }
 
     return { kind: "primitive", name: "String" };
@@ -468,7 +594,9 @@ function inferExprType(
     }
 
     if (expr.tag !== union.tag) {
-      errors.push(`${location} uses tag '${expr.tag}' but union '${union.name}' is tagged by '${union.tag}'.`);
+      errors.push(
+        `${location} uses tag '${expr.tag}' but union '${union.name}' is tagged by '${union.tag}'.`,
+      );
     }
 
     if (!union.variants.some((variant) => variant.name === expr.variant)) {
@@ -479,7 +607,13 @@ function inferExprType(
   }
 
   if (expr.kind === "stringNonEmpty") {
-    validateExprAgainst(expr.target, { kind: "primitive", name: "String" }, context, `${location}.target`, errors);
+    validateExprAgainst(
+      expr.target,
+      { kind: "primitive", name: "String" },
+      context,
+      `${location}.target`,
+      errors,
+    );
     return { kind: "primitive", name: "Bool" };
   }
 
@@ -489,13 +623,25 @@ function inferExprType(
     }
 
     expr.terms.forEach((term, index) => {
-      validateExprAgainst(term, { kind: "primitive", name: "Bool" }, context, `${location}.and[${index}]`, errors);
+      validateExprAgainst(
+        term,
+        { kind: "primitive", name: "Bool" },
+        context,
+        `${location}.and[${index}]`,
+        errors,
+      );
     });
 
     return { kind: "primitive", name: "Bool" };
   }
 
-  const targetType = inferExprType(expr.target, undefined, context, `${location}.${expr.field} target`, errors);
+  const targetType = inferExprType(
+    expr.target,
+    undefined,
+    context,
+    `${location}.${expr.field} target`,
+    errors,
+  );
   const record = targetType ? namedRecord(targetType, context) : undefined;
   const field = record?.fields.find((candidate) => candidate.name === expr.field);
 
@@ -542,7 +688,9 @@ function validateVariant(
   errors: string[],
 ): void {
   if (expr.tag !== union.tag) {
-    errors.push(`${location} uses tag '${expr.tag}' but union '${union.name}' is tagged by '${union.tag}'.`);
+    errors.push(
+      `${location} uses tag '${expr.tag}' but union '${union.name}' is tagged by '${union.tag}'.`,
+    );
   }
 
   const variant = union.variants.find((candidate) => candidate.name === expr.variant);
@@ -678,6 +826,8 @@ function requireUnique(values: string[], context: string, errors: string[]): voi
 
 function requireIdentifier(value: string, context: string, errors: string[]): void {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
-    errors.push(`Invalid ${context} '${value}'. TSCore generated identifiers must match [A-Za-z_][A-Za-z0-9_]*.`);
+    errors.push(
+      `Invalid ${context} '${value}'. TSCore generated identifiers must match [A-Za-z_][A-Za-z0-9_]*.`,
+    );
   }
 }

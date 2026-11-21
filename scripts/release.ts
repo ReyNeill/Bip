@@ -64,7 +64,8 @@ function bumpVersion(kind: "patch" | "minor"): string {
   }
 
   const [major, minor, patch] = parts as [number, number, number];
-  const nextVersion = kind === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+  const nextVersion =
+    kind === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
   packageJson.version = nextVersion;
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 

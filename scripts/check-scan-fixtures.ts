@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { scanProject } from "../src/commands/scan.ts";
@@ -14,7 +14,7 @@ await withFixture(
     packageFile(),
     {
       path: "src/navigation.ts",
-      content: source(["export const ", "nav", "Links = [{ href: \"/\", label: \"Home\" }];\n"]),
+      content: source(["export const ", "nav", 'Links = [{ href: "/", label: "Home" }];\n']),
     },
     {
       path: "src/app/api/status/route.ts",
@@ -30,7 +30,7 @@ await withFixture(
     },
     {
       path: "src/projects.ts",
-      content: source(["export const ", "project", "Catalog = [{ slug: \"bip\" }];\n"]),
+      content: source(["export const ", "project", 'Catalog = [{ slug: "bip" }];\n']),
     },
   ],
   async (root) => {
@@ -56,7 +56,7 @@ await withFixture(
     packageFile(),
     {
       path: "src/routes.ts",
-      content: source(["export const ", "route", "Map = { home: \"/\", writing: \"/writing\" };\n"]),
+      content: source(["export const ", "route", 'Map = { home: "/", writing: "/writing" };\n']),
     },
     {
       path: "src/app/page.tsx",
@@ -64,7 +64,13 @@ await withFixture(
     },
     {
       path: "src/app/actions.ts",
-      content: source(["import { ", "redirect", " } from \"next/navigation\";\n\nexport function goToDashboard() {\n  ", "redirect", "(\"/dashboard\");\n}\n"]),
+      content: source([
+        "import { ",
+        "redirect",
+        ' } from "next/navigation";\n\nexport function goToDashboard() {\n  ',
+        "redirect",
+        '("/dashboard");\n}\n',
+      ]),
     },
   ],
   async (root) => {
@@ -85,15 +91,23 @@ await withFixture(
     packageFile(),
     {
       path: "src/components/ui/button.tsx",
-      content: source(["export const ", "nav", "Links = [{ href: \"/\", label: \"Home\" }];\n"]),
+      content: source(["export const ", "nav", 'Links = [{ href: "/", label: "Home" }];\n']),
     },
     {
       path: "generated/api.ts",
-      content: source(["export async function loadGenerated() {\n  return ", "fetch", "(\"/api/generated\");\n}\n"]),
+      content: source([
+        "export async function loadGenerated() {\n  return ",
+        "fetch",
+        '("/api/generated");\n}\n',
+      ]),
     },
     {
       path: "src/generated/auth.ts",
-      content: source(["export async function generatedAuth() {\n  return ", "current", "User();\n}\n"]),
+      content: source([
+        "export async function generatedAuth() {\n  return ",
+        "current",
+        "User();\n}\n",
+      ]),
     },
     {
       path: "src/env.ts",
@@ -101,7 +115,7 @@ await withFixture(
     },
     {
       path: "src/charts/table.ts",
-      content: source(["export const analytics", "Projects = [{ name: \"Revenue\" }];\n"]),
+      content: source(["export const analytics", 'Projects = [{ name: "Revenue" }];\n']),
     },
     {
       path: "src/config/load.ts",
@@ -117,7 +131,13 @@ await withFixture(
     },
     {
       path: "src/scan/discover-boundaries.ts",
-      content: source(["const boundaryRules = [/(", "current", "User|", "fetch", "\\(|=>\\s*state)/];\n"]),
+      content: source([
+        "const boundaryRules = [/(",
+        "current",
+        "User|",
+        "fetch",
+        "\\(|=>\\s*state)/];\n",
+      ]),
     },
     {
       path: "src/components/ui/link.tsx",
@@ -150,7 +170,12 @@ await withFixture(
     },
     {
       path: "src/generated/bip/site/proof-manifest.json",
-      content: JSON.stringify({ checker: "lean4", source: "bip/site.tscore.ts", leanCheck: { status: "checked", detail: "" }, verifiedExports: [] }),
+      content: JSON.stringify({
+        checker: "lean4",
+        source: "bip/site.tscore.ts",
+        leanCheck: { status: "checked", detail: "" },
+        verifiedExports: [],
+      }),
     },
   ],
   async (root) => {
@@ -164,7 +189,11 @@ await withFixture(
 
 console.log("Scan fixture tests passed.");
 
-async function withFixture(name: string, files: FixtureFile[], run: (root: string) => Promise<void>): Promise<void> {
+async function withFixture(
+  name: string,
+  files: FixtureFile[],
+  run: (root: string) => Promise<void>,
+): Promise<void> {
   const root = mkdtempSync(path.join(tmpdir(), "bip-scan-"));
 
   try {

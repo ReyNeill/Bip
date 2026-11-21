@@ -3,7 +3,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { BipConfig } from "./types.ts";
 
-const CONFIG_NAMES = ["bip.config.ts", "bip.config.mts", "bip.config.js", "bip.config.mjs"] as const;
+const CONFIG_NAMES = [
+  "bip.config.ts",
+  "bip.config.mts",
+  "bip.config.js",
+  "bip.config.mjs",
+] as const;
 
 export type LoadedBipConfig = {
   root: string;
@@ -13,7 +18,9 @@ export type LoadedBipConfig = {
 
 export async function loadBipConfig(rootPath: string): Promise<LoadedBipConfig> {
   const root = path.resolve(rootPath);
-  const configPath = CONFIG_NAMES.map((name) => path.join(root, name)).find((candidate) => existsSync(candidate));
+  const configPath = CONFIG_NAMES.map((name) => path.join(root, name)).find((candidate) =>
+    existsSync(candidate),
+  );
 
   if (!configPath) {
     throw new Error(`No Bip config found in ${root}. Expected ${CONFIG_NAMES.join(", ")}.`);

@@ -44,24 +44,52 @@ export function emitTSCoreLean(module: TSCoreModule): TSCoreLeanArtifact {
   const exports: VerifiedExport[] = [];
 
   // Adds an export's definitions and theorems, and records the export when it proves anything.
-  const add = (exportName: string, model: VerifiedExport["model"], definitions: string[], theorems: Theorem[]) => {
+  const add = (
+    exportName: string,
+    model: VerifiedExport["model"],
+    definitions: string[],
+    theorems: Theorem[],
+  ) => {
     sections.push(...definitions, ...theorems.map((theorem) => theorem.lean));
     if (theorems.length > 0) {
-      exports.push({ exportName, model, properties: theorems.map(({ statement, theorem }) => ({ statement, theorem })) });
+      exports.push({
+        exportName,
+        model,
+        properties: theorems.map(({ statement, theorem }) => ({ statement, theorem })),
+      });
     }
   };
 
   for (const constant of module.constants) {
-    add(constant.name, "TSCoreConstant", [`def ${constant.name} : ${emitType(constant.type)} :=\n  ${emitExpr(constant.value, context)}\n`], constantTheorems(constant));
+    add(
+      constant.name,
+      "TSCoreConstant",
+      [
+        `def ${constant.name} : ${emitType(constant.type)} :=\n  ${emitExpr(constant.value, context)}\n`,
+      ],
+      constantTheorems(constant),
+    );
   }
 
   for (const fn of module.functions) {
-    const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
-    add(fn.name, "TSCoreFunction", [`def ${fn.name} ${params} : ${emitType(fn.returns)} :=\n  ${emitExpr(fn.body, context)}\n`], functionTheorems(fn, context));
+    const params = fn.parameters
+      .map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`)
+      .join(" ");
+    add(
+      fn.name,
+      "TSCoreFunction",
+      [`def ${fn.name} ${params} : ${emitType(fn.returns)} :=\n  ${emitExpr(fn.body, context)}\n`],
+      functionTheorems(fn, context),
+    );
   }
 
   for (const machine of module.stateMachines) {
-    add(machine.name, "TSCoreStateMachine", stateMachineDefinitions(machine), stateMachineTheorems(machine));
+    add(
+      machine.name,
+      "TSCoreStateMachine",
+      stateMachineDefinitions(machine),
+      stateMachineTheorems(machine),
+    );
   }
 
   const content = [
@@ -82,7 +110,11 @@ export function emitTSCoreLean(module: TSCoreModule): TSCoreLeanArtifact {
 }
 
 function theorem(name: string, statement: string, signature: string, proof: string): Theorem {
-  return { statement, theorem: `${NAMESPACE}.${name}`, lean: `theorem ${name}${signature} := by\n${proof}\n` };
+  return {
+    statement,
+    theorem: `${NAMESPACE}.${name}`,
+    lean: `theorem ${name}${signature} := by\n${proof}\n`,
+  };
 }
 
 function constantTheorems(constant: TSCoreConstant): Theorem[] {
@@ -91,7 +123,12 @@ function constantTheorems(constant: TSCoreConstant): Theorem[] {
   return (constant.contracts ?? []).map((contract) => {
     switch (contract.kind) {
       case "nonEmptyArray":
-        return theorem(`${name}_nonempty`, `${name} is non-empty`, ` :\n    ${name} != []`, DECIDE_DATA);
+        return theorem(
+          `${name}_nonempty`,
+          `${name} is non-empty`,
+          ` :\n    ${name} != []`,
+          DECIDE_DATA,
+        );
       case "allItemsFieldNonEmpty":
         return theorem(
           `${name}_all_${contract.field}_nonempty`,
@@ -148,7 +185,9 @@ function constantTheorems(constant: TSCoreConstant): Theorem[] {
 }
 
 function functionTheorems(fn: TSCoreFunction, context: LeanEmitContext): Theorem[] {
-  const params = fn.parameters.map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`).join(" ");
+  const params = fn.parameters
+    .map((parameter) => `(${parameter.name} : ${emitType(parameter.type)})`)
+    .join(" ");
   const call = `${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")}`;
   const signature = params ? ` ${params}` : "";
 
@@ -180,7 +219,9 @@ function functionTheorems(fn: TSCoreFunction, context: LeanEmitContext): Theorem
 
 function stateMachineDefinitions(machine: TSCoreStateMachine): string[] {
   const { name, stateName: S, actionName: A } = machine;
-  const clauses = machine.transitions.map((transition) => `  | .${transition.from}, .${transition.action} => .${transition.to}`);
+  const clauses = machine.transitions.map(
+    (transition) => `  | .${transition.from}, .${transition.action} => .${transition.to}`,
+  );
 
   return [
     `inductive ${S} where\n${machine.states.map((state) => `  | ${state}`).join("\n")}\nderiving Repr, DecidableEq\n`,
@@ -263,7 +304,9 @@ function neverTheorem(machine: TSCoreStateMachine, from: string, to: string): Th
 }
 
 function emitRecord(record: TSCoreRecord): string {
-  const fields = record.fields.map((field) => `  ${field.name} : ${emitType(field.type)}`).join("\n");
+  const fields = record.fields
+    .map((field) => `  ${field.name} : ${emitType(field.type)}`)
+    .join("\n");
   return `structure ${record.name} where\n${fields}\nderiving Repr, BEq\n`;
 }
 
@@ -281,7 +324,8 @@ function nonEmptyFieldsPredicateTheorems(
   context: LeanEmitContext,
 ): Theorem[] {
   const parameter = fn.parameters.find((candidate) => candidate.name === contract.parameter);
-  const record = parameter?.type.kind === "named" ? context.records.get(parameter.type.name) : undefined;
+  const record =
+    parameter?.type.kind === "named" ? context.records.get(parameter.type.name) : undefined;
   if (!record) {
     return [];
   }
@@ -292,7 +336,10 @@ function nonEmptyFieldsPredicateTheorems(
       .map((field) => ` (${field.name} : ${emitType(field.type)})`)
       .join("");
     const fields = record.fields
-      .map((field) => `${field.name} := ${field.name === emptyField ? JSON.stringify("") : field.name}`)
+      .map(
+        (field) =>
+          `${field.name} := ${field.name === emptyField ? JSON.stringify("") : field.name}`,
+      )
       .join(", ");
 
     return theorem(
@@ -336,11 +383,14 @@ function emitExpr(expr: TSCoreExpr, context: LeanEmitContext): string {
   if (expr.kind === "variant") {
     const union = context.unions.get(expr.unionName);
     const variant = union?.variants.find((candidate) => candidate.name === expr.variant);
-    const args = variant?.fields?.flatMap((field) => {
-      const value = expr.fields?.[field.name];
-      return value ? [emitExpr(value, context)] : [];
-    }) ?? [];
-    return args.length > 0 ? `(${expr.unionName}.${expr.variant} ${args.join(" ")})` : `${expr.unionName}.${expr.variant}`;
+    const args =
+      variant?.fields?.flatMap((field) => {
+        const value = expr.fields?.[field.name];
+        return value ? [emitExpr(value, context)] : [];
+      }) ?? [];
+    return args.length > 0
+      ? `(${expr.unionName}.${expr.variant} ${args.join(" ")})`
+      : `${expr.unionName}.${expr.variant}`;
   }
 
   if (expr.kind === "isVariant") {
@@ -359,7 +409,9 @@ function emitExpr(expr: TSCoreExpr, context: LeanEmitContext): string {
   }
 
   if (expr.kind === "and") {
-    return expr.terms.length > 0 ? `(${expr.terms.map((term) => emitExpr(term, context)).join(" && ")})` : "true";
+    return expr.terms.length > 0
+      ? `(${expr.terms.map((term) => emitExpr(term, context)).join(" && ")})`
+      : "true";
   }
 
   if (expr.kind === "field") {
@@ -374,16 +426,25 @@ function emitExpr(expr: TSCoreExpr, context: LeanEmitContext): string {
     return `(${expr.parts.map((part) => emitExpr(part, context)).join(" ++ ")})`;
   }
 
-  const fields = Object.entries(expr.fields).map(([field, value]) => `${field} := ${emitExpr(value, context)}`).join(", ");
+  const fields = Object.entries(expr.fields)
+    .map(([field, value]) => `${field} := ${emitExpr(value, context)}`)
+    .join(", ");
   return `{ ${fields} }`;
 }
 
-function emitVariantPattern(unionName: string, variant: TSCoreTaggedUnion["variants"][number]): string {
+function emitVariantPattern(
+  unionName: string,
+  variant: TSCoreTaggedUnion["variants"][number],
+): string {
   const args = variant.fields?.map(() => "_").join(" ") ?? "";
   return args ? `${unionName}.${variant.name} ${args}` : `${unionName}.${variant.name}`;
 }
 
-function emitSuffixPrefixWitness(expr: TSCoreExpr, suffix: string, context: LeanEmitContext): string {
+function emitSuffixPrefixWitness(
+  expr: TSCoreExpr,
+  suffix: string,
+  context: LeanEmitContext,
+): string {
   if (expr.kind === "string" && expr.value === suffix) {
     return JSON.stringify("");
   }
@@ -393,7 +454,9 @@ function emitSuffixPrefixWitness(expr: TSCoreExpr, suffix: string, context: Lean
     const last = parts.at(-1);
     if (last?.kind === "string" && last.value === suffix) {
       const prefixParts = parts.slice(0, -1);
-      return prefixParts.length > 0 ? `(${prefixParts.map((part) => emitExpr(part, context)).join(" ++ ")})` : JSON.stringify("");
+      return prefixParts.length > 0
+        ? `(${prefixParts.map((part) => emitExpr(part, context)).join(" ++ ")})`
+        : JSON.stringify("");
     }
   }
 

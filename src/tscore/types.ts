@@ -63,7 +63,13 @@ export type TSCoreExpr =
   | { kind: "string"; value: string }
   | { kind: "bool"; value: boolean }
   | { kind: "nat"; value: number }
-  | { kind: "variant"; unionName: string; tag: string; variant: string; fields?: Record<string, TSCoreExpr> }
+  | {
+      kind: "variant";
+      unionName: string;
+      tag: string;
+      variant: string;
+      fields?: Record<string, TSCoreExpr>;
+    }
   | { kind: "isVariant"; target: TSCoreExpr; unionName: string; tag: string; variant: string }
   | { kind: "stringNonEmpty"; target: TSCoreExpr }
   | { kind: "and"; terms: TSCoreExpr[] }

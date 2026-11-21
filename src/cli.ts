@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-import { findStaleArtifacts, verifyCore, type VerifyCoreOptions } from "./commands/verify-core.ts";
-import { checkProject, reportStaleArtifacts, verifyProject } from "./commands/verify-project.ts";
-import { scanProject } from "./commands/scan.ts";
 import { initProject } from "./commands/init.ts";
+import { scanProject } from "./commands/scan.ts";
+import { findStaleArtifacts, type VerifyCoreOptions, verifyCore } from "./commands/verify-core.ts";
+import { checkProject, reportStaleArtifacts, verifyProject } from "./commands/verify-project.ts";
 
 type ParsedArgs = {
   command: string | null;

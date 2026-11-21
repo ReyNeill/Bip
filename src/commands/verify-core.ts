@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { ProofManifest } from "../manifest.ts";
 import type { LeanCheckResult } from "../generated/bip/runtime/ScanScoring.ts";
 import { checkLean, LEAN_TOOLCHAIN, leanCheckPassed } from "../lean/check.ts";
+import type { ProofManifest } from "../manifest.ts";
 import { emitTSCoreLean } from "../tscore/emit-lean.ts";
 import { emitTSCoreTypeScript } from "../tscore/emit-ts.ts";
 import type { TSCoreModule } from "../tscore/types.ts";
@@ -54,7 +54,11 @@ export async function verifyCore(options: VerifyCoreOptions): Promise<void> {
 export async function findStaleArtifacts(options: VerifyCoreOptions): Promise<string[]> {
   const generated = generateModule(await loadValidModule(options.sourcePath), options);
   const files = [generated.runtime, generated.proof, generated.manifest(leanCheckPassed(1))];
-  const stale = await Promise.all(files.map(async (file) => ((await readOptional(file.path)) === file.content ? null : file.path)));
+  const stale = await Promise.all(
+    files.map(async (file) =>
+      (await readOptional(file.path)) === file.content ? null : file.path,
+    ),
+  );
 
   return stale.filter((filePath) => filePath !== null);
 }
@@ -65,7 +69,10 @@ function generateModule(module: TSCoreModule, options: VerifyCoreOptions): Gener
   const lean = emitTSCoreLean(module);
 
   return {
-    runtime: { path: path.join(outDir, "runtime", `${module.name}.ts`), content: emitTSCoreTypeScript(module) },
+    runtime: {
+      path: path.join(outDir, "runtime", `${module.name}.ts`),
+      content: emitTSCoreTypeScript(module),
+    },
     proof: { path: path.join(outDir, lean.relativePath), content: lean.content },
     manifest: (leanCheck) => {
       const manifest: ProofManifest = {
@@ -77,7 +84,10 @@ function generateModule(module: TSCoreModule, options: VerifyCoreOptions): Gener
         verifiedExports: lean.exports,
       };
 
-      return { path: path.join(outDir, "proof-manifest.json"), content: `${JSON.stringify(manifest, null, 2)}\n` };
+      return {
+        path: path.join(outDir, "proof-manifest.json"),
+        content: `${JSON.stringify(manifest, null, 2)}\n`,
+      };
     },
   };
 }
@@ -87,7 +97,9 @@ async function loadValidModule(sourcePath: string): Promise<TSCoreModule> {
   const errors = validateModule(module);
 
   if (errors.length > 0) {
-    throw new Error(errors.map((error) => `TSCore validation error in ${sourcePath}: ${error}`).join("\n"));
+    throw new Error(
+      errors.map((error) => `TSCore validation error in ${sourcePath}: ${error}`).join("\n"),
+    );
   }
 
   return module;
@@ -106,7 +118,9 @@ async function loadTSCoreModule(sourcePath: string): Promise<TSCoreModule> {
   const module = imported.default ?? imported.module ?? imported.tsCoreModule;
 
   if (!isTSCoreModule(module)) {
-    throw new Error(`Expected ${sourcePath} to export a TSCoreModule as default, module, or tsCoreModule.`);
+    throw new Error(
+      `Expected ${sourcePath} to export a TSCoreModule as default, module, or tsCoreModule.`,
+    );
   }
 
   return module;

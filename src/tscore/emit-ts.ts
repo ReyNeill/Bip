@@ -13,7 +13,9 @@ export function emitTSCoreTypeScript(module: TSCoreModule): string {
       return `export const ${constant.name}: ${emitType(constant.type)} = ${emitExpr(constant.value, context)};\n`;
     }),
     ...module.functions.map((fn) => {
-      const params = fn.parameters.map((parameter) => `${parameter.name}: ${emitType(parameter.type)}`).join(", ");
+      const params = fn.parameters
+        .map((parameter) => `${parameter.name}: ${emitType(parameter.type)}`)
+        .join(", ");
       return `export function ${fn.name}(${params}): ${emitFunctionReturnType(fn, context)} {\n  return ${emitExpr(fn.body, context)};\n}\n`;
     }),
     ...module.stateMachines.flatMap(emitStateMachine),
@@ -27,13 +29,17 @@ function header(moduleName: string): string {
 }
 
 function emitRecord(record: TSCoreModule["records"][number]): string {
-  const fields = record.fields.map((field) => `  ${field.name}: ${emitType(field.type)};`).join("\n");
+  const fields = record.fields
+    .map((field) => `  ${field.name}: ${emitType(field.type)};`)
+    .join("\n");
   return `export type ${record.name} = {\n${fields}\n};\n`;
 }
 
 function emitUnion(union: TSCoreModule["unions"][number]): string {
   const variants = union.variants.map((variant) => {
-    const fields = variant.fields?.map((field) => `${field.name}: ${emitType(field.type)}`).join("; ");
+    const fields = variant.fields
+      ?.map((field) => `${field.name}: ${emitType(field.type)}`)
+      .join("; ");
     const fieldSuffix = fields ? `; ${fields}` : "";
     return `  | { ${union.tag}: "${variant.name}"${fieldSuffix} }`;
   });
@@ -62,10 +68,16 @@ function emitFunctionReturnType(
   context: { unions: Map<string, TSCoreModule["unions"][number]> },
 ): string {
   const { body } = fn;
-  const parameter = body.kind === "isVariant" && body.target.kind === "var" ? body.target.name : undefined;
+  const parameter =
+    body.kind === "isVariant" && body.target.kind === "var" ? body.target.name : undefined;
   const union = body.kind === "isVariant" ? context.unions.get(body.unionName) : undefined;
 
-  if (body.kind === "isVariant" && parameter && union && fn.parameters.some((candidate) => candidate.name === parameter)) {
+  if (
+    body.kind === "isVariant" &&
+    parameter &&
+    union &&
+    fn.parameters.some((candidate) => candidate.name === parameter)
+  ) {
     return `${parameter} is Extract<${union.name}, { ${union.tag}: ${JSON.stringify(body.variant)} }>`;
   }
 
@@ -92,7 +104,10 @@ function emitType(type: TSCoreType): string {
   return type.name;
 }
 
-function emitExpr(expr: TSCoreExpr, context: { unions: Map<string, TSCoreModule["unions"][number]> }): string {
+function emitExpr(
+  expr: TSCoreExpr,
+  context: { unions: Map<string, TSCoreModule["unions"][number]> },
+): string {
   if (expr.kind === "var") {
     return expr.name;
   }
@@ -110,7 +125,9 @@ function emitExpr(expr: TSCoreExpr, context: { unions: Map<string, TSCoreModule[
   }
 
   if (expr.kind === "variant") {
-    const fields = Object.entries(expr.fields ?? {}).map(([field, value]) => `${field}: ${emitExpr(value, context)}`);
+    const fields = Object.entries(expr.fields ?? {}).map(
+      ([field, value]) => `${field}: ${emitExpr(value, context)}`,
+    );
     return `{ ${[`${expr.tag}: ${JSON.stringify(expr.variant)}`, ...fields].join(", ")} }`;
   }
 
@@ -125,7 +142,9 @@ function emitExpr(expr: TSCoreExpr, context: { unions: Map<string, TSCoreModule[
   }
 
   if (expr.kind === "and") {
-    return expr.terms.length > 0 ? expr.terms.map((term) => `(${emitExpr(term, context)})`).join(" && ") : "true";
+    return expr.terms.length > 0
+      ? expr.terms.map((term) => `(${emitExpr(term, context)})`).join(" && ")
+      : "true";
   }
 
   if (expr.kind === "field") {
@@ -140,6 +159,8 @@ function emitExpr(expr: TSCoreExpr, context: { unions: Map<string, TSCoreModule[
     return expr.parts.map((part) => emitExpr(part, context)).join(" + ");
   }
 
-  const fields = Object.entries(expr.fields).map(([field, value]) => `${field}: ${emitExpr(value, context)}`).join(", ");
+  const fields = Object.entries(expr.fields)
+    .map(([field, value]) => `${field}: ${emitExpr(value, context)}`)
+    .join(", ");
   return `{ ${fields} }`;
 }

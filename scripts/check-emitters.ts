@@ -1,13 +1,13 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import siteModule from "../examples/basic-site.tscore.ts";
 import selfModule from "../bip/scan-scoring.tscore.ts";
+import siteModule from "../examples/basic-site.tscore.ts";
 import { checkLean } from "../src/lean/check.ts";
+import { defineModule } from "../src/tscore/define.ts";
 import { emitTSCoreLean } from "../src/tscore/emit-lean.ts";
 import { emitTSCoreTypeScript } from "../src/tscore/emit-ts.ts";
 import { evaluate, isRecord, type TSCoreValue } from "../src/tscore/evaluate.ts";
-import { defineModule } from "../src/tscore/define.ts";
 import { guardName, step } from "../src/tscore/state-machine.ts";
 import type { TSCoreModule, TSCoreType } from "../src/tscore/types.ts";
 import { validateModule } from "../src/tscore/validate.ts";
@@ -57,7 +57,13 @@ const expressionsModule = defineModule({
             typeName: "Post",
             fields: {
               slug: { kind: "string", value: "bip" },
-              title: { kind: "concat", parts: [{ kind: "string", value: "Bip " }, { kind: "string", value: "notes" }] },
+              title: {
+                kind: "concat",
+                parts: [
+                  { kind: "string", value: "Bip " },
+                  { kind: "string", value: "notes" },
+                ],
+              },
               draft: { kind: "bool", value: false },
               order: { kind: "nat", value: 2 },
             },
@@ -72,7 +78,14 @@ const expressionsModule = defineModule({
       name: "postHref",
       parameters: [{ name: "post", type: PostType }],
       returns: StringType,
-      body: { kind: "concat", parts: [{ kind: "string", value: "/writing/" }, { kind: "field", target: post, field: "slug" }, { kind: "string", value: "/" }] },
+      body: {
+        kind: "concat",
+        parts: [
+          { kind: "string", value: "/writing/" },
+          { kind: "field", target: post, field: "slug" },
+          { kind: "string", value: "/" },
+        ],
+      },
     },
     {
       kind: "function",
@@ -92,14 +105,26 @@ const expressionsModule = defineModule({
       name: "okResult",
       parameters: [{ name: "path", type: StringType }],
       returns: ResultType,
-      body: { kind: "variant", unionName: "Result", tag: "status", variant: "ok", fields: { path: { kind: "var", name: "path" } } },
+      body: {
+        kind: "variant",
+        unionName: "Result",
+        tag: "status",
+        variant: "ok",
+        fields: { path: { kind: "var", name: "path" } },
+      },
     },
     {
       kind: "function",
       name: "isOk",
       parameters: [{ name: "result", type: ResultType }],
       returns: { kind: "primitive", name: "Bool" },
-      body: { kind: "isVariant", target: { kind: "var", name: "result" }, unionName: "Result", tag: "status", variant: "ok" },
+      body: {
+        kind: "isVariant",
+        target: { kind: "var", name: "result" },
+        unionName: "Result",
+        tag: "status",
+        variant: "ok",
+      },
     },
     {
       kind: "function",
@@ -136,7 +161,11 @@ async function checkModule(module: TSCoreModule): Promise<void> {
   const leanExamples: string[] = [];
 
   for (const constant of module.constants) {
-    expectEqual(runtime[constant.name], evaluate(constant.value), `${module.name}.${constant.name}`);
+    expectEqual(
+      runtime[constant.name],
+      evaluate(constant.value),
+      `${module.name}.${constant.name}`,
+    );
   }
 
   for (const fn of module.functions) {
@@ -145,14 +174,23 @@ async function checkModule(module: TSCoreModule): Promise<void> {
       throw new Error(`${module.name}.${fn.name} is not a generated function.`);
     }
 
-    for (const args of combinations(fn.parameters.map((parameter) => samples(parameter.type, module)))) {
-      const expected = evaluate(fn.body, new Map(fn.parameters.map((parameter, index) => [parameter.name, args[index] ?? ""])));
+    for (const args of combinations(
+      fn.parameters.map((parameter) => samples(parameter.type, module)),
+    )) {
+      const expected = evaluate(
+        fn.body,
+        new Map(fn.parameters.map((parameter, index) => [parameter.name, args[index] ?? ""])),
+      );
       const label = `${module.name}.${fn.name}(${args.map((arg) => JSON.stringify(arg)).join(", ")})`;
       expectEqual(implementation(...args), expected, label);
 
       if (fn.returns.kind === "primitive") {
-        const leanArgs = args.map((arg, index) => leanValue(arg, fn.parameters[index]?.type ?? StringType, module)).join(" ");
-        leanExamples.push(`example : ${fn.name} ${leanArgs} = ${leanValue(expected, fn.returns, module)} := by decide`);
+        const leanArgs = args
+          .map((arg, index) => leanValue(arg, fn.parameters[index]?.type ?? StringType, module))
+          .join(" ");
+        leanExamples.push(
+          `example : ${fn.name} ${leanArgs} = ${leanValue(expected, fn.returns, module)} := by decide`,
+        );
       }
     }
   }
@@ -166,28 +204,47 @@ async function checkModule(module: TSCoreModule): Promise<void> {
 
     for (const state of machine.states) {
       for (const action of machine.actions) {
-        const declared = machine.transitions.some((transition) => transition.from === state && transition.action === action);
-        expectEqual(reducer(state, action), step(machine, state, action), `${machine.name}(${state}, ${action})`);
+        const declared = machine.transitions.some(
+          (transition) => transition.from === state && transition.action === action,
+        );
+        expectEqual(
+          reducer(state, action),
+          step(machine, state, action),
+          `${machine.name}(${state}, ${action})`,
+        );
         expectEqual(guard(state, action), declared, `${guardName(machine)}(${state}, ${action})`);
-        leanExamples.push(`example : ${machine.name} .${state} .${action} = .${step(machine, state, action)} := by decide`);
-        leanExamples.push(`example : ${guardName(machine)} .${state} .${action} = ${declared} := by decide`);
+        leanExamples.push(
+          `example : ${machine.name} .${state} .${action} = .${step(machine, state, action)} := by decide`,
+        );
+        leanExamples.push(
+          `example : ${guardName(machine)} .${state} .${action} = ${declared} := by decide`,
+        );
       }
     }
   }
 
-  const lean = emitTSCoreLean(module).content.replace(/end Bip\.Generated\.TSCore\n$/, `${leanExamples.join("\n")}\n\nend Bip.Generated.TSCore\n`);
+  const lean = emitTSCoreLean(module).content.replace(
+    /end Bip\.Generated\.TSCore\n$/,
+    `${leanExamples.join("\n")}\n\nend Bip.Generated.TSCore\n`,
+  );
   const leanPath = path.join(root, `${module.name}.lean`);
   writeFileSync(leanPath, lean, "utf8");
   const result = await checkLean([leanPath]);
   if (result.status !== "checked") {
-    throw new Error(`Generated Lean for ${module.name} disagrees with the evaluator:\n${result.detail}`);
+    throw new Error(
+      `Generated Lean for ${module.name} disagrees with the evaluator:\n${result.detail}`,
+    );
   }
 }
 
 // Sample values for a parameter type, shaped like the generated TypeScript.
 function samples(type: TSCoreType, module: TSCoreModule): TSCoreValue[] {
   if (type.kind === "primitive") {
-    return type.name === "String" ? ["", "a", "post/1"] : type.name === "Bool" ? [true, false] : [0, 3];
+    return type.name === "String"
+      ? ["", "a", "post/1"]
+      : type.name === "Bool"
+        ? [true, false]
+        : [0, 3];
   }
 
   if (type.kind === "array") {
@@ -199,17 +256,21 @@ function samples(type: TSCoreType, module: TSCoreModule): TSCoreValue[] {
     const fieldSamples = record.fields.map((field) => samples(field.type, module));
     // Rotate through each field's samples so records mix empty and non-empty fields.
     return [0, 1, 2].map((offset) =>
-      Object.fromEntries(record.fields.map((field, index) => {
-        const options = fieldSamples[index] ?? [];
-        return [field.name, options[(offset + index) % options.length] ?? ""];
-      })),
+      Object.fromEntries(
+        record.fields.map((field, index) => {
+          const options = fieldSamples[index] ?? [];
+          return [field.name, options[(offset + index) % options.length] ?? ""];
+        }),
+      ),
     );
   }
 
   const union = module.unions.find((candidate) => candidate.name === type.name);
   return (union?.variants ?? []).map((variant) => ({
     [union?.tag ?? "kind"]: variant.name,
-    ...Object.fromEntries((variant.fields ?? []).map((field) => [field.name, samples(field.type, module)[1] ?? ""])),
+    ...Object.fromEntries(
+      (variant.fields ?? []).map((field) => [field.name, samples(field.type, module)[1] ?? ""]),
+    ),
   }));
 }
 
@@ -225,18 +286,26 @@ function leanValue(value: TSCoreValue, type: TSCoreType, module: TSCoreModule): 
 
   const record = module.records.find((candidate) => candidate.name === type.name);
   if (record) {
-    const fields = record.fields.map((field) => `${field.name} := ${leanValue(fieldValue(value, field.name), field.type, module)}`);
+    const fields = record.fields.map(
+      (field) => `${field.name} := ${leanValue(fieldValue(value, field.name), field.type, module)}`,
+    );
     return `({ ${fields.join(", ")} } : ${record.name})`;
   }
 
   const union = module.unions.find((candidate) => candidate.name === type.name);
-  const variant = union?.variants.find((candidate) => candidate.name === fieldValue(value, union.tag));
+  const variant = union?.variants.find(
+    (candidate) => candidate.name === fieldValue(value, union.tag),
+  );
   if (!union || !variant) {
     throw new Error(`Unknown union value ${JSON.stringify(value)}.`);
   }
 
-  const args = (variant.fields ?? []).map((field) => leanValue(fieldValue(value, field.name), field.type, module));
-  return args.length > 0 ? `(${union.name}.${variant.name} ${args.join(" ")})` : `${union.name}.${variant.name}`;
+  const args = (variant.fields ?? []).map((field) =>
+    leanValue(fieldValue(value, field.name), field.type, module),
+  );
+  return args.length > 0
+    ? `(${union.name}.${variant.name} ${args.join(" ")})`
+    : `${union.name}.${variant.name}`;
 }
 
 function fieldValue(value: { readonly [field: string]: TSCoreValue }, field: string): TSCoreValue {
@@ -248,7 +317,10 @@ function fieldValue(value: { readonly [field: string]: TSCoreValue }, field: str
 }
 
 function combinations(options: TSCoreValue[][]): TSCoreValue[][] {
-  return options.reduce<TSCoreValue[][]>((rows, values) => rows.flatMap((row) => values.map((value) => [...row, value])), [[]]);
+  return options.reduce<TSCoreValue[][]>(
+    (rows, values) => rows.flatMap((row) => values.map((value) => [...row, value])),
+    [[]],
+  );
 }
 
 function isCallable(value: unknown): value is (...args: readonly unknown[]) => unknown {
@@ -257,6 +329,8 @@ function isCallable(value: unknown): value is (...args: readonly unknown[]) => u
 
 function expectEqual(actual: unknown, expected: unknown, label: string): void {
   if (!Bun.deepEquals(actual, expected)) {
-    throw new Error(`${label}: generated TypeScript returned ${JSON.stringify(actual)}, evaluator returned ${JSON.stringify(expected)}.`);
+    throw new Error(
+      `${label}: generated TypeScript returned ${JSON.stringify(actual)}, evaluator returned ${JSON.stringify(expected)}.`,
+    );
   }
 }

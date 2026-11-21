@@ -1,4 +1,10 @@
-import type { TSCoreConstant, TSCoreConstantContract, TSCoreExpr, TSCoreRecord, TSCoreStateMachine } from "./types.ts";
+import type {
+  TSCoreConstant,
+  TSCoreConstantContract,
+  TSCoreExpr,
+  TSCoreRecord,
+  TSCoreStateMachine,
+} from "./types.ts";
 
 // Typed builders for the common TSCore shapes. They produce plain IR, but TypeScript checks the data
 // against the record's field types and checks every contract's field names, so a typo fails at
@@ -6,8 +12,15 @@ import type { TSCoreConstant, TSCoreConstantContract, TSCoreExpr, TSCoreRecord, 
 
 type PrimitiveName = "String" | "Bool" | "Nat";
 type FieldTypes = Readonly<Record<string, PrimitiveName>>;
-type PrimitiveValue<P extends PrimitiveName> = P extends "String" ? string : P extends "Bool" ? boolean : number;
-type StringField<F extends FieldTypes> = { [K in keyof F]: F[K] extends "String" ? K : never }[keyof F] & string;
+type PrimitiveValue<P extends PrimitiveName> = P extends "String"
+  ? string
+  : P extends "Bool"
+    ? boolean
+    : number;
+type StringField<F extends FieldTypes> = {
+  [K in keyof F]: F[K] extends "String" ? K : never;
+}[keyof F] &
+  string;
 
 export type RecordValueOf<F extends FieldTypes> = { readonly [K in keyof F]: PrimitiveValue<F[K]> };
 
@@ -18,7 +31,10 @@ export function record<const F extends FieldTypes>(name: string, fieldTypes: F):
   return {
     kind: "record",
     name,
-    fields: Object.entries(fieldTypes).map(([field, type]) => ({ name: field, type: { kind: "primitive", name: type } })),
+    fields: Object.entries(fieldTypes).map(([field, type]) => ({
+      name: field,
+      type: { kind: "primitive", name: type },
+    })),
     fieldTypes,
   };
 }
@@ -41,13 +57,28 @@ export function recordList<F extends FieldTypes>(
 ): TSCoreConstant {
   const list: TSCoreConstantContract[] = [
     ...(contracts.nonEmpty ? [{ kind: "nonEmptyArray" } as const] : []),
-    ...(contracts.nonEmptyFields ?? []).map((field) => ({ kind: "allItemsFieldNonEmpty", field }) as const),
-    ...(contracts.unique ?? []).map((field) => ({ kind: "allItemsFieldUnique", field }) as const),
-    ...defined<string | readonly string[]>(contracts.startsWith).map(([field, prefix]): TSCoreConstantContract =>
-      typeof prefix === "string" ? { kind: "allItemsFieldStartsWith", field, prefix } : { kind: "allItemsFieldStartsWithOneOf", field, prefixes: [...prefix] },
+    ...(contracts.nonEmptyFields ?? []).map(
+      (field) => ({ kind: "allItemsFieldNonEmpty", field }) as const,
     ),
-    ...defined<string>(contracts.emptyOrStartsWith).map(([field, prefix]) => ({ kind: "allItemsFieldEmptyOrStartsWith", field, prefix }) as const),
-    ...defined<{ constant: string; field: string }>(contracts.in).map(([field, target]) => ({ kind: "allItemsFieldInConstant", field, constant: target.constant, constantField: target.field }) as const),
+    ...(contracts.unique ?? []).map((field) => ({ kind: "allItemsFieldUnique", field }) as const),
+    ...defined<string | readonly string[]>(contracts.startsWith).map(
+      ([field, prefix]): TSCoreConstantContract =>
+        typeof prefix === "string"
+          ? { kind: "allItemsFieldStartsWith", field, prefix }
+          : { kind: "allItemsFieldStartsWithOneOf", field, prefixes: [...prefix] },
+    ),
+    ...defined<string>(contracts.emptyOrStartsWith).map(
+      ([field, prefix]) => ({ kind: "allItemsFieldEmptyOrStartsWith", field, prefix }) as const,
+    ),
+    ...defined<{ constant: string; field: string }>(contracts.in).map(
+      ([field, target]) =>
+        ({
+          kind: "allItemsFieldInConstant",
+          field,
+          constant: target.constant,
+          constantField: target.field,
+        }) as const,
+    ),
   ];
 
   return {
@@ -71,7 +102,11 @@ export function recordValue<F extends FieldTypes>(
     name,
     type: { kind: "named", name: of.name },
     value: recordExpr(of, value),
-    contracts: defined<string>(contracts.equals).map(([field, expected]) => ({ kind: "fieldEquals", field, value: expected })),
+    contracts: defined<string>(contracts.equals).map(([field, expected]) => ({
+      kind: "fieldEquals",
+      field,
+      value: expected,
+    })),
   };
 }
 
@@ -108,15 +143,25 @@ function recordExpr<F extends FieldTypes>(of: TypedRecord<F>, value: RecordValue
   return {
     kind: "record",
     typeName: of.name,
-    fields: Object.fromEntries(Object.keys(of.fieldTypes).map((field) => [field, literal(fields[field] ?? "")])),
+    fields: Object.fromEntries(
+      Object.keys(of.fieldTypes).map((field) => [field, literal(fields[field] ?? "")]),
+    ),
   };
 }
 
 function literal(value: string | number | boolean): TSCoreExpr {
-  return typeof value === "string" ? { kind: "string", value } : typeof value === "boolean" ? { kind: "bool", value } : { kind: "nat", value };
+  return typeof value === "string"
+    ? { kind: "string", value }
+    : typeof value === "boolean"
+      ? { kind: "bool", value }
+      : { kind: "nat", value };
 }
 
 // The set entries of a partial field map.
-function defined<V>(map: { readonly [field: string]: V | undefined } | undefined): Array<[string, V]> {
-  return Object.entries(map ?? {}).flatMap(([field, value]): Array<[string, V]> => (value === undefined ? [] : [[field, value]]));
+function defined<V>(
+  map: { readonly [field: string]: V | undefined } | undefined,
+): Array<[string, V]> {
+  return Object.entries(map ?? {}).flatMap(
+    ([field, value]): Array<[string, V]> => (value === undefined ? [] : [[field, value]]),
+  );
 }

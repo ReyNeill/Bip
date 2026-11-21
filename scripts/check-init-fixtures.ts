@@ -7,7 +7,7 @@ await withFixture("creates scaffold in an explicit directory", async (root) => {
   const target = path.join(root, "new-project");
   const output = await captureInit(target);
 
-  assertFileIncludes(path.join(target, "bip.config.ts"), "source: \"bip/example.tscore.ts\"");
+  assertFileIncludes(path.join(target, "bip.config.ts"), 'source: "bip/example.tscore.ts"');
   assertFileIncludes(path.join(target, "bip/example.tscore.ts"), "defineModule");
   assertFileIncludes(path.join(target, "AGENTS.md"), "bunx bip verify");
   assertIncludes(output, "Bip initialized.");

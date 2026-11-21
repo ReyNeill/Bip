@@ -116,7 +116,10 @@ const validModule = defineModule({
           { kind: "string", value: "/" },
         ],
       },
-      contracts: [{ kind: "returnsStartsWith", prefix: "/" }, { kind: "returnsEndsWith", suffix: "/" }],
+      contracts: [
+        { kind: "returnsStartsWith", prefix: "/" },
+        { kind: "returnsEndsWith", suffix: "/" },
+      ],
     },
   ],
   stateMachines: [
@@ -136,10 +139,19 @@ const validModule = defineModule({
 });
 
 assertNoErrors("valid module", validModule);
-assertError("missing record field", withRouteFields({ path: { kind: "string", value: "/" } }), "missing record field 'label'");
+assertError(
+  "missing record field",
+  withRouteFields({ path: { kind: "string", value: "/" } }),
+  "missing record field 'label'",
+);
 assertError(
   "unknown variant",
-  replaceConstant("homeKind", { kind: "variant", unionName: "PageKind", tag: "kind", variant: "missing" }),
+  replaceConstant("homeKind", {
+    kind: "variant",
+    unionName: "PageKind",
+    tag: "kind",
+    variant: "missing",
+  }),
   "unknown variant 'PageKind.missing'",
 );
 assertError(
@@ -248,7 +260,9 @@ assertError(
           kind: "array",
           items: [routeValue({ path: "ftp://example.com", label: "External" })],
         },
-        contracts: [{ kind: "allItemsFieldStartsWithOneOf", field: "path", prefixes: ["/", "https://"] }],
+        contracts: [
+          { kind: "allItemsFieldStartsWithOneOf", field: "path", prefixes: ["/", "https://"] },
+        ],
       },
     ],
   },
@@ -302,10 +316,20 @@ assertError(
 );
 // Untyped modules (for example ones built by a project adapter) can still carry contracts that
 // were removed because their theorem only restated the function body.
-for (const kind of ["returnsField", "recordConstructor", "returnsVariant", "idempotent", "variantPredicate"]) {
+for (const kind of [
+  "returnsField",
+  "recordConstructor",
+  "returnsVariant",
+  "idempotent",
+  "variantPredicate",
+]) {
   const [routePath] = validModule.functions;
   const legacy: unknown = { ...validModule, functions: [{ ...routePath, contracts: [{ kind }] }] };
-  assertError(`removed ${kind} contract`, legacy as TSCoreModule, `uses removed contract '${kind}'`);
+  assertError(
+    `removed ${kind} contract`,
+    legacy as TSCoreModule,
+    `uses removed contract '${kind}'`,
+  );
 }
 
 assertError(
@@ -395,7 +419,11 @@ const builtModule = defineModule({
     }),
   ],
 });
-assertError("typed builder data", builtModule, "allItemsFieldEmptyOrStartsWith contract currently supports String fields only");
+assertError(
+  "typed builder data",
+  builtModule,
+  "allItemsFieldEmptyOrStartsWith contract currently supports String fields only",
+);
 
 console.log("TSCore validation smoke tests passed.");
 
@@ -420,14 +448,22 @@ function withRouteFields(fields: Record<string, TSCoreExpr>): TSCoreModule {
   });
 }
 
-function replaceConstant(name: string, value: TSCoreModule["constants"][number]["value"]): TSCoreModule {
+function replaceConstant(
+  name: string,
+  value: TSCoreModule["constants"][number]["value"],
+): TSCoreModule {
   return {
     ...validModule,
-    constants: validModule.constants.map((constant) => (constant.name === name ? { ...constant, value } : constant)),
+    constants: validModule.constants.map((constant) =>
+      constant.name === name ? { ...constant, value } : constant,
+    ),
   };
 }
 
-function routeValue(fields: { path: string; label: string }): TSCoreModule["constants"][number]["value"] {
+function routeValue(fields: {
+  path: string;
+  label: string;
+}): TSCoreModule["constants"][number]["value"] {
   return {
     kind: "record",
     typeName: "Route",

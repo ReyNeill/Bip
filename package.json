@@ -39,6 +39,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.8",
     "@types/bun": "^1.3.3",
     "bip": "npm:@reyneill/bip@^0.1.0"
   }

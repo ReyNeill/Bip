@@ -15,7 +15,10 @@ export async function initProject(rootPath = process.cwd()): Promise<void> {
 
   mkdirSync(bipDir, { recursive: true });
 
-  await writeIfMissing(root, configPath, `import { defineBipConfig } from "bip";
+  await writeIfMissing(
+    root,
+    configPath,
+    `import { defineBipConfig } from "bip";
 
 export default defineBipConfig({
   modules: [
@@ -28,9 +31,13 @@ export default defineBipConfig({
     },
   ],
 });
-`);
+`,
+  );
 
-  await writeIfMissing(root, modulePath, `import { defineModule, record, recordList } from "bip";
+  await writeIfMissing(
+    root,
+    modulePath,
+    `import { defineModule, record, recordList } from "bip";
 
 const PageRoute = record("PageRoute", { path: "String", label: "String" });
 
@@ -48,7 +55,8 @@ export default defineModule({
   functions: [],
   stateMachines: [],
 });
-`);
+`,
+  );
 
   await appendAgentsNote(root, agentsPath);
 
