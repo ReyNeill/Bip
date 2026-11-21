@@ -2,6 +2,7 @@ import type { ProvedProperty, VerifiedExport } from "../manifest.ts";
 import { guardName, reachableFrom, runName } from "./state-machine.ts";
 import type {
   TSCoreConstant,
+  TSCoreConstantContract,
   TSCoreExpr,
   TSCoreFunction,
   TSCoreFunctionContract,
@@ -118,70 +119,70 @@ function theorem(name: string, statement: string, signature: string, proof: stri
 }
 
 function constantTheorems(constant: TSCoreConstant): Theorem[] {
-  const name = constant.name;
+  return (constant.contracts ?? []).map((contract) => constantTheorem(constant.name, contract));
+}
 
-  return (constant.contracts ?? []).map((contract) => {
-    switch (contract.kind) {
-      case "nonEmptyArray":
-        return theorem(
-          `${name}_nonempty`,
-          `${name} is non-empty`,
-          ` :\n    ${name} != []`,
-          DECIDE_DATA,
-        );
-      case "allItemsFieldNonEmpty":
-        return theorem(
-          `${name}_all_${contract.field}_nonempty`,
-          `every ${name} item has a non-empty ${contract.field}`,
-          ` :\n    ${name}.all (fun item => item.${contract.field} != "") = true`,
-          DECIDE_DATA,
-        );
-      case "allItemsFieldUnique":
-        return theorem(
-          `${name}_all_${contract.field}_unique`,
-          `${contract.field} is unique across ${name}`,
-          ` :\n    (${name}.map (fun item => item.${contract.field})).Nodup`,
-          DECIDE_DATA,
-        );
-      case "allItemsFieldStartsWith":
-        return theorem(
-          `${name}_all_${contract.field}_starts_with`,
-          `every ${name} ${contract.field} starts with ${JSON.stringify(contract.prefix)}`,
-          ` :\n    ${name}.all (fun item => ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
-          DECIDE_DATA,
-        );
-      case "allItemsFieldStartsWithOneOf": {
-        const prefixes = contract.prefixes.map((prefix) => JSON.stringify(prefix)).join(", ");
-        return theorem(
-          `${name}_all_${contract.field}_starts_with_one_of`,
-          `every ${name} ${contract.field} starts with one of ${prefixes}`,
-          ` :\n    ${name}.all (fun item => [${prefixes}].any (fun p => p.toList.isPrefixOf item.${contract.field}.toList)) = true`,
-          DECIDE_DATA,
-        );
-      }
-      case "allItemsFieldEmptyOrStartsWith":
-        return theorem(
-          `${name}_all_${contract.field}_empty_or_starts_with`,
-          `every ${name} ${contract.field} is empty or starts with ${JSON.stringify(contract.prefix)}`,
-          ` :\n    ${name}.all (fun item => item.${contract.field} = "" || ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
-          DECIDE_DATA,
-        );
-      case "allItemsFieldInConstant":
-        return theorem(
-          `${name}_all_${contract.field}_in_${contract.constant}`,
-          `every ${name} ${contract.field} appears as a ${contract.constant} ${contract.constantField}`,
-          ` :\n    ${name}.all (fun item => ${contract.constant}.any (fun candidate => candidate.${contract.constantField} == item.${contract.field})) = true`,
-          DECIDE_DATA,
-        );
-      case "fieldEquals":
-        return theorem(
-          `${name}_${contract.field}_eq`,
-          `${name}.${contract.field} is ${JSON.stringify(contract.value)}`,
-          ` :\n    ${name}.${contract.field} = ${JSON.stringify(contract.value)}`,
-          "  rfl",
-        );
+function constantTheorem(name: string, contract: TSCoreConstantContract): Theorem {
+  switch (contract.kind) {
+    case "nonEmptyArray":
+      return theorem(
+        `${name}_nonempty`,
+        `${name} is non-empty`,
+        ` :\n    ${name} != []`,
+        DECIDE_DATA,
+      );
+    case "allItemsFieldNonEmpty":
+      return theorem(
+        `${name}_all_${contract.field}_nonempty`,
+        `every ${name} item has a non-empty ${contract.field}`,
+        ` :\n    ${name}.all (fun item => item.${contract.field} != "") = true`,
+        DECIDE_DATA,
+      );
+    case "allItemsFieldUnique":
+      return theorem(
+        `${name}_all_${contract.field}_unique`,
+        `${contract.field} is unique across ${name}`,
+        ` :\n    (${name}.map (fun item => item.${contract.field})).Nodup`,
+        DECIDE_DATA,
+      );
+    case "allItemsFieldStartsWith":
+      return theorem(
+        `${name}_all_${contract.field}_starts_with`,
+        `every ${name} ${contract.field} starts with ${JSON.stringify(contract.prefix)}`,
+        ` :\n    ${name}.all (fun item => ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
+        DECIDE_DATA,
+      );
+    case "allItemsFieldStartsWithOneOf": {
+      const prefixes = contract.prefixes.map((prefix) => JSON.stringify(prefix)).join(", ");
+      return theorem(
+        `${name}_all_${contract.field}_starts_with_one_of`,
+        `every ${name} ${contract.field} starts with one of ${prefixes}`,
+        ` :\n    ${name}.all (fun item => [${prefixes}].any (fun p => p.toList.isPrefixOf item.${contract.field}.toList)) = true`,
+        DECIDE_DATA,
+      );
     }
-  });
+    case "allItemsFieldEmptyOrStartsWith":
+      return theorem(
+        `${name}_all_${contract.field}_empty_or_starts_with`,
+        `every ${name} ${contract.field} is empty or starts with ${JSON.stringify(contract.prefix)}`,
+        ` :\n    ${name}.all (fun item => item.${contract.field} = "" || ${JSON.stringify(contract.prefix)}.toList.isPrefixOf item.${contract.field}.toList) = true`,
+        DECIDE_DATA,
+      );
+    case "allItemsFieldInConstant":
+      return theorem(
+        `${name}_all_${contract.field}_in_${contract.constant}`,
+        `every ${name} ${contract.field} appears as a ${contract.constant} ${contract.constantField}`,
+        ` :\n    ${name}.all (fun item => ${contract.constant}.any (fun candidate => candidate.${contract.constantField} == item.${contract.field})) = true`,
+        DECIDE_DATA,
+      );
+    case "fieldEquals":
+      return theorem(
+        `${name}_${contract.field}_eq`,
+        `${name}.${contract.field} is ${JSON.stringify(contract.value)}`,
+        ` :\n    ${name}.${contract.field} = ${JSON.stringify(contract.value)}`,
+        "  rfl",
+      );
+  }
 }
 
 function functionTheorems(fn: TSCoreFunction, context: LeanEmitContext): Theorem[] {
@@ -191,30 +192,40 @@ function functionTheorems(fn: TSCoreFunction, context: LeanEmitContext): Theorem
   const call = `${fn.name} ${fn.parameters.map((parameter) => parameter.name).join(" ")}`;
   const signature = params ? ` ${params}` : "";
 
-  return (fn.contracts ?? []).flatMap((contract) => {
-    switch (contract.kind) {
-      case "returnsStartsWith":
-        return [
-          theorem(
-            `${fn.name}_returns_prefix`,
-            `${fn.name} returns a string starting with ${JSON.stringify(contract.prefix)} for every input`,
-            `${signature} :\n    ${JSON.stringify(contract.prefix)}.toList.isPrefixOf (${call}).toList = true`,
-            `  unfold ${fn.name}\n  simp`,
-          ),
-        ];
-      case "returnsEndsWith":
-        return [
-          theorem(
-            `${fn.name}_returns_suffix`,
-            `${fn.name} returns a string ending with ${JSON.stringify(contract.suffix)} for every input`,
-            `${signature} :\n    ∃ p : String, ${call} = p ++ ${JSON.stringify(contract.suffix)}`,
-            `  unfold ${fn.name}\n  exact ⟨${emitSuffixPrefixWitness(fn.body, contract.suffix, context)}, rfl⟩`,
-          ),
-        ];
-      case "nonEmptyFieldsPredicate":
-        return nonEmptyFieldsPredicateTheorems(fn, contract, context);
-    }
-  });
+  return (fn.contracts ?? []).flatMap((contract) =>
+    functionContractTheorems(fn, contract, call, signature, context),
+  );
+}
+
+function functionContractTheorems(
+  fn: TSCoreFunction,
+  contract: TSCoreFunctionContract,
+  call: string,
+  signature: string,
+  context: LeanEmitContext,
+): Theorem[] {
+  switch (contract.kind) {
+    case "returnsStartsWith":
+      return [
+        theorem(
+          `${fn.name}_returns_prefix`,
+          `${fn.name} returns a string starting with ${JSON.stringify(contract.prefix)} for every input`,
+          `${signature} :\n    ${JSON.stringify(contract.prefix)}.toList.isPrefixOf (${call}).toList = true`,
+          `  unfold ${fn.name}\n  simp`,
+        ),
+      ];
+    case "returnsEndsWith":
+      return [
+        theorem(
+          `${fn.name}_returns_suffix`,
+          `${fn.name} returns a string ending with ${JSON.stringify(contract.suffix)} for every input`,
+          `${signature} :\n    ∃ p : String, ${call} = p ++ ${JSON.stringify(contract.suffix)}`,
+          `  unfold ${fn.name}\n  exact ⟨${emitSuffixPrefixWitness(fn.body, contract.suffix, context)}, rfl⟩`,
+        ),
+      ];
+    case "nonEmptyFieldsPredicate":
+      return nonEmptyFieldsPredicateTheorems(fn, contract, context);
+  }
 }
 
 function stateMachineDefinitions(machine: TSCoreStateMachine): string[] {

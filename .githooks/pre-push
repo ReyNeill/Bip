@@ -1,0 +1,4 @@
+#!/bin/sh
+# Before a push: typecheck, repository lint, and generated-artifact staleness, a few seconds.
+# Lean proofs and tests run in `bun run c` and CI.
+bun run typecheck && bun run lint && exec bun run check:self

@@ -12,13 +12,7 @@ if (bump !== "patch" && bump !== "minor") {
 
 assertCleanWorktree();
 
-run(["bun", "run", "typecheck"]);
-run(["bun", "run", "test:init"]);
-run(["bun", "run", "test:scan"]);
-run(["bun", "run", "test:tscore"]);
-run(["bun", "run", "test:check"]);
-run(["bun", "run", "test:emitters"]);
-run(["bun", "run", "check:self"]);
+run(["bun", "run", "c"]);
 
 const nextVersion = bumpVersion(bump);
 console.log(`Bumped package version to ${nextVersion}.`);

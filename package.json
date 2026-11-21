@@ -1,6 +1,7 @@
 {
   "name": "@reyneill/bip",
   "version": "0.1.2",
+  "packageManager": "bun@1.4.4",
   "description": "Experimental proof-carrying TypeScript package tooling.",
   "type": "module",
   "bin": {
@@ -18,7 +19,15 @@
     "access": "public"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun run lint && bun run deps:check && bun test && bun run check:self",
+    "c": "bun run check",
+    "typecheck": "bun check --no-script",
+    "lint": "biome ci --error-on-warnings .",
+    "lint:fix": "biome check --write --error-on-warnings .",
+    "format": "biome format --write .",
+    "deps:check": "bun dedupe --check",
+    "test": "bun test",
+    "hooks": "sh scripts/install-git-hooks.sh",
     "pack:dry-run": "bun pm pack --dry-run",
     "publish:dry-run": "bun publish --dry-run --access public",
     "publish:public": "bun publish --access public",
@@ -28,19 +37,11 @@
     "check:self": "bun run src/cli.ts verify --check",
     "verify:core": "bun run src/cli.ts verify-core examples/basic-site.tscore.ts --out generated/tscore",
     "scan:self": "bun run src/cli.ts scan .",
-    "scan:published": "bun node_modules/bip/src/cli.ts scan .",
-    "test:init": "bun run scripts/check-init-fixtures.ts",
-    "test:scan": "bun run scripts/check-scan-fixtures.ts",
-    "test:tscore": "bun run scripts/check-tscore-validation.ts",
-    "test:check": "bun run scripts/check-verify-check.ts",
-    "test:emitters": "bun run scripts/check-emitters.ts"
-  },
-  "dependencies": {
-    "typescript": "^5.9.3"
+    "scan:published": "bun node_modules/bip/src/cli.ts scan ."
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.8",
-    "@types/bun": "^1.3.3",
+    "@types/bun": "1.4.4",
     "bip": "npm:@reyneill/bip@^0.1.0"
   }
 }

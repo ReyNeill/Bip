@@ -8,18 +8,19 @@ A TSCore module (a small typed IR written in TypeScript) emits runtime TypeScrip
 
 ```sh
 bun install
-bun run src/cli.ts init [directory]
-bun run verify:self
-bun run check:self
-bun run verify:core
+bun run hooks       # once per clone: pre-commit and pre-push hooks
+bun run c           # the full gate: typecheck, lint, dedupe, tests, self staleness
+bun run verify:self # regenerate and Lean-check Bip's own module
+bun run verify:core # regenerate and Lean-check the example module
 bun run scan:self
-bun run typecheck
-bun run test:tscore && bun run test:scan && bun run test:init && bun run test:check && bun run test:emitters
+bun run src/cli.ts init [directory]
 ```
+
+CI runs `bun run c` on every push to `main`. Contributor notes live in [AGENTS.md](AGENTS.md).
 
 Lean is required to verify. Proofs are checked by one pinned toolchain (`leanprover/lean4:v4.32.0`, recorded in every manifest): with elan installed, `bip verify` runs `elan run --install <toolchain> lean` and installs it on first use; without elan, the `lean` on `PATH` must report that version. If Lean is missing or the version differs, the manifest records the check as `failed` and `bip verify` exits non-zero. Unchecked proofs are never silently accepted.
 
-`test:emitters` is the differential test between the two outputs: it runs the generated TypeScript and the generated Lean on sample inputs and compares both with a TSCore evaluator, so the code apps run cannot drift from the definitions Lean proves things about.
+`tests/emitters.test.ts` is the differential test between the two outputs: it runs the generated TypeScript and the generated Lean on sample inputs and compares both with a TSCore evaluator, so the code apps run cannot drift from the definitions Lean proves things about.
 
 ## Release
 

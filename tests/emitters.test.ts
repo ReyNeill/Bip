@@ -1,3 +1,4 @@
+import { afterAll, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -139,14 +140,14 @@ const expressionsModule = defineModule({
 
 const root = mkdtempSync(path.join(tmpdir(), "bip-emitters-"));
 
-try {
-  for (const module of [expressionsModule, siteModule, selfModule]) {
-    await checkModule(module);
-  }
+afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-  console.log("Emitter agreement tests passed.");
-} finally {
-  rmSync(root, { recursive: true, force: true });
+for (const module of [expressionsModule, siteModule, selfModule]) {
+  test(
+    `${module.name}: generated TypeScript and Lean agree with the evaluator`,
+    () => checkModule(module),
+    120_000,
+  );
 }
 
 async function checkModule(module: TSCoreModule): Promise<void> {

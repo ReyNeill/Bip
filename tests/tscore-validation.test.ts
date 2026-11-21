@@ -1,3 +1,4 @@
+import { expect, test } from "bun:test";
 import { record, recordList, recordValue, stateMachine } from "../src/tscore/build.ts";
 import { defineModule } from "../src/tscore/define.ts";
 import type { TSCoreExpr, TSCoreModule } from "../src/tscore/types.ts";
@@ -374,7 +375,7 @@ assertError(
 
 const [machine] = validModule.stateMachines;
 if (!machine) {
-  throw new Error("valid module needs a state machine");
+  throw new Error("The valid module needs a state machine.");
 }
 assertError(
   "unreachable state",
@@ -425,20 +426,14 @@ assertError(
   "allItemsFieldEmptyOrStartsWith contract currently supports String fields only",
 );
 
-console.log("TSCore validation smoke tests passed.");
-
+// Registers a test that the module validates cleanly.
 function assertNoErrors(name: string, module: TSCoreModule): void {
-  const errors = validateModule(module);
-  if (errors.length > 0) {
-    throw new Error(`${name} produced unexpected errors:\n${errors.join("\n")}`);
-  }
+  test(name, () => expect(validateModule(module)).toEqual([]));
 }
 
+// Registers a test that validation reports an error containing `expected`.
 function assertError(name: string, module: TSCoreModule, expected: string): void {
-  const errors = validateModule(module);
-  if (!errors.some((error) => error.includes(expected))) {
-    throw new Error(`${name} did not include '${expected}'. Actual errors:\n${errors.join("\n")}`);
-  }
+  test(name, () => expect(validateModule(module).join("\n")).toContain(expected));
 }
 
 function withRouteFields(fields: Record<string, TSCoreExpr>): TSCoreModule {

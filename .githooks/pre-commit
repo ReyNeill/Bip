@@ -1,0 +1,4 @@
+#!/bin/sh
+# Before a commit: Biome (format and lint) on the staged files, about a second.
+# The full gate is still `bun run c`; skip this once with `git commit --no-verify`.
+exec bunx biome check --staged --no-errors-on-unmatched --error-on-warnings

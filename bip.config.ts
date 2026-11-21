@@ -18,16 +18,16 @@ export default defineBipConfig({
       weight: 20,
     },
     {
-      name: "Scan fixtures",
-      command: ["bun", "run", "test:scan"],
+      name: "Lint",
+      command: ["bun", "run", "lint"],
       category: "Project Checks",
       weight: 10,
     },
     {
-      name: "TSCore validation fixtures",
-      command: ["bun", "run", "test:tscore"],
+      name: "Tests",
+      command: ["bun", "test"],
       category: "Project Checks",
-      weight: 10,
+      weight: 20,
     },
   ],
 });

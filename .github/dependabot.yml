@@ -1,0 +1,40 @@
+version: 2
+
+# Low-noise policy: one grouped minor/patch PR per ecosystem each month after a week's cooldown.
+# Majors are deliberate migrations and are not opened automatically.
+updates:
+  # GitHub calls the JavaScript ecosystem "npm"; Bun is the package manager and bun.lock the lockfile.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"

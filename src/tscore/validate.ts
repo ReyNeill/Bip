@@ -532,7 +532,7 @@ function inferExprType(
   }
 
   if (expr.kind === "array") {
-    if (!expected || expected.kind !== "array") {
+    if (expected?.kind !== "array") {
       errors.push(`${location} array expression needs an array expected type.`);
       return undefined;
     }
